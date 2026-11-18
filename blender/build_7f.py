@@ -644,90 +644,108 @@ cbox("Lounge_Blue_Box", 5.3, 7.3, 0, 0.45, 0.45, 0.45, M["blue_box"])
 T("Lounge_Sign", "쉼터", 4.2, 8.31, 2.3, 0.9, 0.3, M["white"], facing="S", fallback="LOUNGE")
 
 # =====================================================================
-#  6) 상담실 (64석 · 청회색 파티션 · 플랜터 · 철제 선반 · 라임 기둥)
+#  6) 상담실 — 중앙 기둥 줄을 기준으로 남·북 양쪽에 5줄씩
+#     · 한 줄 = 가운데 칸막이를 사이에 두고 마주 보는 2열 × 5칸 (10석)
+#     · 회의실 복도 쪽 줄 끝: 철제 프레임 + 다이아 메시 + 회색 패브릭 + 나무 화분함 칸막이
+#     · 기둥 쪽 줄 끝: 칸막이 없이 가로로 놓인 팀장 좌석 (팀원 쪽을 바라봄)
 # =====================================================================
-POD_X = [-17.0, -12.4, -7.8, -3.2]
-POD_Y = [-2.6, 1.8, 6.2, 10.6]  # 남쪽 회의실 줄 때문에 북쪽으로 1.6m
-n = 0
-for py in POD_Y:
-    for px in POD_X:
-        n += 1
-        p = f"Pod_{n:02d}"
-        box(f"{p}_Part_X", px - 1.55, py - 0.03, 0, px + 1.55, py + 0.03, 1.2, M["fabric_blue"])
-        box(f"{p}_WhiteTrim_X", px - 1.55, py - 0.04, 1.2, px + 1.55, py + 0.04, 1.23, M["white"])
-        box(f"{p}_Part_Y", px - 0.03, py - 0.68, 0, px + 0.03, py + 0.68, 1.2, M["fabric_blue"])
-        box(f"{p}_WhiteTrim_Y", px - 0.04, py - 0.68, 1.2, px + 0.04, py + 0.68, 1.23, M["white"])
-        for sx in (-1, 1):  # 끝 파티션 (통로 쪽)
-            box(f"{p}_End_{'E' if sx > 0 else 'W'}", px + sx * 1.55 - 0.03, py - 0.68, 0,
-                px + sx * 1.55 + 0.03, py + 0.68, 1.05, M["fabric_blue"])
-        pothos(f"{p}_Top_Plant", px, py, 1.23, 0.9)
-        for sx in (-1, 1):
-            for sy in (-1, 1):
-                k = f"{p}_{'E' if sx > 0 else 'W'}{'N' if sy > 0 else 'S'}"
-                dx, dy = px + sx * 0.78, py + sy * 0.36
-                cbox(f"{k}_Desk_Top", dx, dy, 0.7, 1.42, 0.62, 0.035, M["desk_white"])
-                cbox(f"{k}_Mobile_Pedestal", px + sx * 1.25, dy, 0, 0.4, 0.55, 0.62, M["white"])
-                cbox(f"{k}_Mon_L", dx - 0.24, py + sy * 0.12, 0.78, 0.46, 0.03, 0.3, M["black"])
-                cbox(f"{k}_Mon_R", dx + 0.24, py + sy * 0.12, 0.78, 0.46, 0.03, 0.3, M["black"])
-                cbox(f"{k}_Blue_Desk_Pad", dx, dy + sy * 0.08, 0.735, 0.6, 0.28, 0.005, M["ksqi_blue"])
-                office_chair(f"{k}_Chair", dx, py + sy * 1.0, -sy)
-                box(f"{k}_Nameplate", dx - 0.15, py + sy * 0.045, 1.0, dx + 0.15, py + sy * 0.05, 1.1, M["white"])
-        if n % 3 == 1:
-            cbox(f"{p}_Pink_Umbrella", px + 1.45, py + 0.55, 0.2, 0.08, 0.08, 0.55, M["umbrella"])
+LINE_X = [-17.3, -13.85, -10.4, -6.95, -3.5]  # 각 줄의 가운데 칸막이 x
+PITCH = 1.3  # 자리 간격
+NSEAT = 5  # 한 열의 칸 수
+PILLAR_Y = 5.3  # 중앙 기둥 줄
+# 각 구역: (상담석 시작 y, 끝 y, 팀장 책상 쪽 y 방향)
+# 팀장석은 두 구역 모두 줄의 북쪽 끝 (북쪽 구역은 창가 쪽 팀장석 자리만큼 남쪽으로 당김)
+HALVES = {"S": (-3.7, -3.7 + NSEAT * PITCH, +1), "N": (6.68, 6.68 + NSEAT * PITCH, +1)}
 
-# 철제 프레임 선반 (화분 + 나무 선반) — 기존 자리
-DIV_X = [-14.7, -10.1, -5.5]
-DIV_Y = [-0.4, 4.0, 8.4, 12.8]
-for j, dy in enumerate(DIV_Y):
-    for i, dx in enumerate(DIV_X):
-        d = f"TallDiv_{j}_{i}"
-        for k, ox in enumerate((-1.1, 0.0, 1.1)):
-            cbox(f"{d}_Post_{k}", dx + ox, dy, 0, 0.06, 0.06, 2.16, M["frame_black"])
-        box(f"{d}_TopBar", dx - 1.13, dy - 0.03, 2.1, dx + 1.13, dy + 0.03, 2.16, M["frame_black"])
-        box(f"{d}_TopMesh", dx - 1.1, dy - 0.01, 1.7, dx + 1.1, dy + 0.01, 2.1, M["mesh_black"])
-        box(f"{d}_BlackBase", dx - 1.1, dy - 0.15, 0.08, dx + 1.1, dy + 0.15, 0.4, M["frame_black"])
-        box(f"{d}_WoodTrough", dx - 1.1, dy - 0.16, 0.4, dx + 1.1, dy + 0.16, 0.75, M["wood_light"])
-        box(f"{d}_FabricMid", dx - 1.1, dy - 0.02, 0.75, dx + 1.1, dy + 0.02, 1.0, M["fabric_blue"])
-        box(f"{d}_FlatShelf", dx - 1.1, dy - 0.16, 1.0, dx + 1.1, dy + 0.16, 1.03, M["wood_light"])
-        box(f"{d}_OpenFrame_T", dx - 0.5, dy - 0.16, 1.4, dx + 0.5, dy + 0.16, 1.43, M["wood_light"])
-        for k, ox in enumerate((-0.75, -0.25, 0.25, 0.75)):
-            pothos(f"{d}_Pot_{k}", dx + ox, dy, 1.03 if k % 2 else 0.75, 1.0)
 
-# 기둥 (나무 + 라임 측면 + 노란 에티켓 보드 + 화재경보기 + 소화기)
-for j, py in enumerate([0.2, 6.8]):
-    for i, px in enumerate(DIV_X):
-        c = f"Pillar_{j}_{i}"
-        cbox(f"{c}_Wood_Core", px, py, 0, 0.62, 0.78, 3.1, M["wood_panel"])
-        cbox(f"{c}_Lime_W", px - 0.33, py, 0, 0.05, 0.78, 3.1, M["lime_green"])
-        cbox(f"{c}_Lime_E", px + 0.33, py, 0, 0.05, 0.78, 3.1, M["lime_green"])
-        box(f"{c}_Yellow_Etiquette_Board", px - 0.22, py + 0.39, 1.0, px + 0.22, py + 0.41, 1.9, M["phone_yellow"])
-        T(f"{c}_Etiquette_Text", "모두 행복", px, py + 0.42, 1.75, 0.38, 0.09, M["text_dark"], facing="N", fallback="SMILE")
-        box(f"{c}_Fire_Alarm", px - 0.22, py + 0.39, 1.3, px - 0.12, py + 0.41, 1.6, M["ext_red"])
-        ext(f"{c}_Ext", px, py + 0.58)
-# 하얀 2단 수납장
-for i, x in enumerate([-11.95, -7.35]):
-    cbox(f"White_2Door_Cabinet_{i + 1}", x, 4.0, 0, 0.85, 0.46, 0.96, M["white"])
-# 북쪽: 창 + 롤 블라인드 + 낮은 수납장 + 공기청정기
+def office_chair_x(name, x, y, face_x):
+    """x 방향을 바라보는 메시 의자 (face_x=-1 → 서쪽 책상을 봄)"""
+    cyl(f"{name}_Base", x, y, 0, 0.26, 0.42, M["black"], 10, r2=0.04)
+    cbox(f"{name}_Seat", x, y, 0.42, 0.46, 0.48, 0.07, M["mesh_black"])
+    cbox(f"{name}_Back", x - face_x * 0.24, y, 0.49, 0.05, 0.44, 0.55, M["mesh_black"])
+
+
+for h, (y0, y1, lead_dir) in HALVES.items():
+    for li, sx in enumerate(LINE_X):
+        L = f"Line_{h}{li + 1}"
+        # 가운데 칸막이 (청회색 + 흰 테두리)
+        box(f"{L}_Spine", sx - 0.03, y0, 0, sx + 0.03, y1, 1.2, M["fabric_blue"])
+        box(f"{L}_Spine_Trim", sx - 0.04, y0, 1.2, sx + 0.04, y1, 1.23, M["white"])
+        for k in range(NSEAT + 1):  # 자리 사이 칸막이 (양쪽)
+            yy = y0 + k * PITCH
+            box(f"{L}_Side_{k}", sx - 0.7, yy - 0.025, 0, sx + 0.7, yy + 0.025, 1.1, M["fabric_blue"])
+        for side, sg in (("W", -1), ("E", 1)):
+            for k in range(NSEAT):
+                q = f"{L}_{side}{k + 1}"
+                cy = y0 + (k + 0.5) * PITCH
+                cbox(f"{q}_Desk_Top", sx + sg * 0.36, cy, 0.7, 0.66, 1.2, 0.035, M["desk_white"])
+                cbox(f"{q}_Mobile_Pedestal", sx + sg * 0.33, cy + 0.36, 0, 0.55, 0.4, 0.62, M["white"])
+                cbox(f"{q}_Mon_L", sx + sg * 0.14, cy - 0.24, 0.78, 0.03, 0.46, 0.3, M["black"])
+                cbox(f"{q}_Mon_R", sx + sg * 0.14, cy + 0.24, 0.78, 0.03, 0.46, 0.3, M["black"])
+                office_chair_x(f"{q}_Chair", sx + sg * 1.05, cy, -sg)
+        for k in range(0, NSEAT, 2):
+            pothos(f"{L}_Top_Plant_{k}", sx, y0 + (k + 0.5) * PITCH, 1.23, 0.85)
+        if li % 2 == 0:
+            cbox(f"{L}_Pink_Umbrella", sx + 0.1, y0 + 0.4, 0.2, 0.08, 0.08, 0.55, M["umbrella"])
+        ex0, ex1 = sx - 1.35, sx + 1.35  # 줄 전체 폭
+        if h == "S":
+            # 회의실 복도 쪽 끝 (사진): 철제 프레임 + 메시 + 회색 패브릭 + 화분함 + 나무 상판
+            e, ey = f"{L}_AisleEnd", y0
+            for k, xx in enumerate((ex0, sx - 0.03, ex1 - 0.06)):
+                box(f"{e}_Frame_{k}", xx, ey - 0.05, 0, xx + 0.06, ey + 0.05, 1.28, M["frame_black"])
+            box(f"{e}_Frame_Bottom", ex0, ey - 0.05, 0, ex1, ey + 0.05, 0.06, M["frame_black"])
+            box(f"{e}_Frame_Mid", ex0, ey - 0.05, 0.62, ex1, ey + 0.05, 0.66, M["frame_black"])
+            box(f"{e}_Diamond_Mesh", ex0 + 0.06, ey - 0.02, 0.06, ex1 - 0.06, ey + 0.02, 0.62, M["mesh_black"])
+            box(f"{e}_Gray_Fabric", ex0 + 0.06, ey - 0.03, 0.66, ex1 - 0.06, ey + 0.03, 1.22, M["cushion_gray"])
+            box(f"{e}_Wood_Top", ex0 - 0.03, ey - 0.12, 1.28, ex1 + 0.03, ey + 0.12, 1.32, M["wood_light"])
+            for k, bx in enumerate((ex0 + 0.2, sx + 0.2)):
+                box(f"{e}_Planter_Box_{k}", bx, ey - 0.3, 0.62, bx + 0.6, ey - 0.05, 0.92, M["wood_light"])
+                leaf_ball(f"{e}_Planter_Leaves_{k}", bx + 0.3, ey - 0.18, 1.02, 0.2, M["plant"])
+            pothos(f"{e}_Top_Plant_1", ex0 + 0.4, ey, 1.32, 1.1)
+            pothos(f"{e}_Top_Plant_2", ex1 - 0.4, ey, 1.32, 1.0)
+        # 북쪽 끝: 칸막이 없음, 가로로 놓인 팀장 좌석 (팀원 쪽을 바라봄)
+        ty0 = y1  # 줄 끝
+        dy = ty0 + lead_dir * 0.35  # 책상 가운데
+        cbox(f"{L}_Leader_Desk", sx, dy, 0.7, 2.0, 0.7, 0.035, M["desk_white"])
+        cbox(f"{L}_Leader_Desk_Panel", sx, dy - lead_dir * 0.32, 0, 2.0, 0.04, 0.7, M["white"])
+        cbox(f"{L}_Leader_Pedestal", sx + 0.7, dy, 0, 0.45, 0.55, 0.62, M["white"])
+        cbox(f"{L}_Leader_Mon_L", sx - 0.25, dy - lead_dir * 0.18, 0.74, 0.46, 0.03, 0.3, M["black"])
+        cbox(f"{L}_Leader_Mon_R", sx + 0.25, dy - lead_dir * 0.18, 0.74, 0.46, 0.03, 0.3, M["black"])
+        office_chair(f"{L}_Leader_Chair", sx, ty0 + lead_dir * 1.1, -lead_dir)
+        T(f"{L}_Leader_Plate", f"{li + 1}팀 팀장", sx, dy - lead_dir * 0.36, 0.55, 0.5, 0.08, M["text_navy"],
+          facing="S", fallback=f"TEAM {li + 1}")
+
+# 중앙 기둥 줄 (나무 + 라임 측면 + 노란 에티켓 보드 + 화재경보기 + 소화기)
+for i, px in enumerate([-14.7, -10.1, -5.5]):
+    c, py = f"Pillar_{i}", PILLAR_Y
+    cbox(f"{c}_Wood_Core", px, py, 0, 0.62, 0.78, 3.1, M["wood_panel"])
+    cbox(f"{c}_Lime_W", px - 0.33, py, 0, 0.05, 0.78, 3.1, M["lime_green"])
+    cbox(f"{c}_Lime_E", px + 0.33, py, 0, 0.05, 0.78, 3.1, M["lime_green"])
+    for f, sgn in (("S", -1), ("N", 1)):
+        box(f"{c}_Yellow_Etiquette_Board_{f}", px - 0.22, py + sgn * 0.39 - 0.01, 1.0, px + 0.22, py + sgn * 0.39 + 0.01, 1.9, M["phone_yellow"])
+        T(f"{c}_Etiquette_Text_{f}", "모두 행복", px, py + sgn * 0.42, 1.75, 0.38, 0.09, M["text_dark"], facing=f, fallback="SMILE")
+    box(f"{c}_Fire_Alarm", px - 0.22, py + 0.39, 1.3, px - 0.12, py + 0.41, 1.6, M["ext_red"])
+    ext(f"{c}_Ext", px + 0.56, py)
+
+# 북쪽: 창 + 롤 블라인드 + 낮은 수납장 + 하얀 수납장 + 공기청정기
 wall("North_Window_Wall", -18.8, 15.8, -0.8, 15.8, M["wall_white"])
 wall("Counsel_West_Wall", -18.8, -7.9, -18.8, 15.8, M["wall_white"])
 box("North_Roller_Blind", -18.6, 15.68, 0.9, -0.9, 15.72, 2.9, M["roller"])
 box("North_Low_WoodCab", -18.5, 15.1, 0, -1.0, 15.6, 0.7, M["wood_light"])
-for i, x in enumerate([-13.5, -6.5]):
-    cbox(f"North_White_2Door_Cab_{i + 1}", x, 14.6, 0, 1.05, 0.5, 1.1, M["white"])
-    cyl(f"Air_Purifier_{i + 1}", x + 1.0, 14.6, 0, 0.18, 0.72, M["white"], 20)
-    cyl(f"Air_Purifier_Top_{i + 1}", x + 1.0, 14.6, 0.72, 0.13, 0.03, M["ksqi_blue"], 20)
-box("IdeaRoom_Glass_Wall", -7.3, 14.78, 0, -1.1, 14.82, 2.9, M["glass"])
-T("Decal_Uplus_5G", "U+5G", -3.5, 14.76, 1.55, 1.0, 0.3, M["magenta"], facing="S")
+for i, x in enumerate([-12.2, -5.3]):
+    cbox(f"North_White_2Door_Cab_{i + 1}", x, 14.85, 0, 1.05, 0.45, 1.1, M["white"])
+    cyl(f"Air_Purifier_{i + 1}", x + 1.0, 14.85, 0, 0.18, 0.72, M["white"], 20)
+    cyl(f"Air_Purifier_Top_{i + 1}", x + 1.0, 14.85, 0.72, 0.13, 0.03, M["ksqi_blue"], 20)
 T("North_Banner", "고객의 마음까지 상담합니다", -9.0, 15.66, 2.6, 5.0, 0.32, M["text_navy"], facing="S", fallback="EMPATHY CENTER")
-# 복도 쪽 낮은 칸막이 (화분 레일 · 철제 프레임)
-for i, ly in enumerate([-2.6, 1.8, 6.2, 10.6, 13.6]):
-    l = f"LowDiv_{i + 1}"
-    box(f"{l}_Frame", -1.18, ly - 1.1, 0, -1.12, ly + 1.1, 1.32, M["frame_black"])
-    box(f"{l}_BotMesh", -1.2, ly - 1.08, 0.08, -1.1, ly + 1.08, 0.6, M["mesh_black"])
-    box(f"{l}_MidFabric", -1.18, ly - 1.08, 0.6, -1.12, ly + 1.08, 1.2, M["fabric_blue"])
-    box(f"{l}_TopWoodShelf", -1.32, ly - 1.1, 1.24, -0.98, ly + 1.1, 1.3, M["wood_light"])
-    for k, oy in enumerate((-0.7, 0.0, 0.7)):
-        pothos(f"{l}_Pothos_{k}", -1.15, ly + oy, 1.3, 0.9)
+# 복도 쪽 낮은 칸막이 (화분 레일 · 철제 프레임) — 중앙 통로(4.1~6.5)는 비워 둠
+for i, (ya, yb) in enumerate([(-3.6, -1.4), (-0.4, 1.8), (2.8, 4.1), (6.5, 8.7), (9.7, 11.9), (12.9, 14.6)]):
+    l, ly, hl = f"LowDiv_{i + 1}", (ya + yb) / 2, (yb - ya) / 2
+    box(f"{l}_Frame", -1.18, ya, 0, -1.12, yb, 1.32, M["frame_black"])
+    box(f"{l}_BotMesh", -1.2, ya + 0.02, 0.08, -1.1, yb - 0.02, 0.6, M["mesh_black"])
+    box(f"{l}_MidFabric", -1.18, ya + 0.02, 0.6, -1.12, yb - 0.02, 1.2, M["fabric_blue"])
+    box(f"{l}_TopWoodShelf", -1.32, ya, 1.24, -0.98, yb, 1.3, M["wood_light"])
+    for k in range(max(1, int((yb - ya) / 0.8))):
+        pothos(f"{l}_Pothos_{k}", -1.15, ya + 0.4 + k * 0.8, 1.3, 0.9)
 
 # =====================================================================
 #  7) 남쪽 회의실 줄 (상담석 입구 쪽) + 가운데 복사기 통로 → 바깥 복도

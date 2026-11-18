@@ -54,7 +54,7 @@ const treasures = {
   t6_dino: { id: "t6_dino", floor: "6F", name: "노란 공룡 인형", position: [-0.6, 0.5, 5.8] },
   t7_plant: { id: "t7_plant", floor: "7F", name: "일언천금 화분", position: [4.6, 0.5, 4.5] },
   t7_cushion: { id: "t7_cushion", floor: "7F", name: "빨간 하트 쿠션", position: [5.33, 0.5, -1.0] },
-  t7_card: { id: "t7_card", floor: "7F", name: "상담실 에티켓 황금 사원증", position: [-10.1, 0.5, -3.15] },
+  t7_card: { id: "t7_card", floor: "7F", name: "상담실 에티켓 황금 사원증", position: [-8.9, 0.5, -5.3] }, // 중앙 기둥 옆 에티켓 보드
 };
 
 /* ───────── 상태 ───────── */
