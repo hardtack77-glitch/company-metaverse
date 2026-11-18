@@ -16,6 +16,30 @@ const MAP_OFFSET = [0, 0, 0]; // 맵 전체를 옮겨야 할 때 [x, y, z]
 // 캐릭터 모델: client/public/characters.glb (없으면 기본 도형 캐릭터)
 const CHAR_URL = "/characters.glb";
 const PLAYER_MODEL = "Character_Player_Consultant";
+
+// 입장할 때 고르는 캐릭터 모양 (characters.glb 안의 이름)
+const CHARACTER_TYPES = [
+  { id: "male", label: "남성", sub: "기본", model: "Character_Player_Consultant" },
+  { id: "female_long", label: "여성", sub: "긴 머리", model: "Character_Female_LongHair" },
+  { id: "female_short", label: "여성", sub: "단발", model: "Character_Female_ShortHair" },
+];
+// 가디건 색상
+const OUTFIT_COLORS = [
+  { hex: "#2f5fb3", label: "블루" },
+  { hex: "#e6007e", label: "마젠타" },
+  { hex: "#d62839", label: "레드" },
+  { hex: "#f08a24", label: "오렌지" },
+  { hex: "#e5b81c", label: "옐로" },
+  { hex: "#2e9e5b", label: "그린" },
+  { hex: "#2bb3a3", label: "민트" },
+  { hex: "#7b4bb7", label: "퍼플" },
+  { hex: "#f39ac7", label: "핑크" },
+  { hex: "#1f2a44", label: "네이비" },
+  { hex: "#8a8f99", label: "그레이" },
+  { hex: "#f4f1ea", label: "아이보리" },
+];
+const DEFAULT_LOOK = { type: "male", outfit: OUTFIT_COLORS[0].hex };
+const lookModel = (look) => CHARACTER_TYPES.find((t) => t.id === look?.type)?.model || PLAYER_MODEL;
 // 천장·조명처럼 위에서 내려다볼 때 가리는 물체 숨기기 (이름 규칙 또는 바닥에서 2.6m 이상 떠 있는 것)
 const HIDE_NAME = /ceiling|soffit|roof|천장/i;
 const HIDE_ABOVE = 2.6;
@@ -393,7 +417,7 @@ const STILL = { current: 0 };
 function Npc({ npc }) {
   return (
     <group position={npc.position} rotation-y={npc.rotationY ?? 0}>
-      <AvatarBody name={npc.name} speedRef={STILL} outfit={npc.color} model={npc.model} isNpc />
+      <AvatarBody name={npc.name} speedRef={STILL} outfit={npc.model ? undefined : npc.color} model={npc.model} isNpc />
     </group>
   );
 }
@@ -496,7 +520,7 @@ class CharBoundary extends Component {
   }
 }
 
-function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, model }) {
+function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, model, hideLabel }) {
   const charsOk = useContext(CharsContext);
   const labelScale = useContext(LabelScaleContext);
   const procedural = <ProceduralBody speedRef={speedRef} outfit={outfit || CARDIGAN} />;
@@ -505,12 +529,13 @@ function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, mod
       {charsOk ? (
         <CharBoundary fallback={procedural}>
           <Suspense fallback={procedural}>
-            <GlbCharacter model={model} outfit={model ? null : outfit} speedRef={speedRef} />
+            <GlbCharacter model={model} outfit={outfit} speedRef={speedRef} />
           </Suspense>
         </CharBoundary>
       ) : (
         procedural
       )}
+      {!hideLabel && (
       <Html position-y={1.8} center distanceFactor={labelScale} zIndexRange={[10, 0]}>
         <div style={{ ...styles.labelWrap, transform: "translateY(-50%)" /* 이름표 아래쪽이 머리 위에 오도록 */ }}>
           {isNpc && <div style={styles.npcMark}>💬</div>}
@@ -520,6 +545,7 @@ function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, mod
           </div>
         </div>
       </Html>
+      )}
     </group>
   );
 }
@@ -727,7 +753,7 @@ function MyAvatar({ me, inputRef, bubble, myPosRef, frozen, bounds, colliders, c
   return (
     <group ref={ref} position={me.position}>
       {/* 1인칭에서는 내 몸이 카메라를 가리지 않도록 숨김 */}
-      {!CAMERA_MODES[camMode]?.firstPerson && <AvatarBody name={me.name} bubble={bubble} isMe speedRef={speedRef} />}
+      {!CAMERA_MODES[camMode]?.firstPerson && <AvatarBody name={me.name} bubble={bubble} isMe speedRef={speedRef} model={lookModel(me.look)} outfit={me.look?.outfit} />}
     </group>
   );
 }
@@ -749,7 +775,14 @@ function OtherAvatar({ player, bubble }) {
 
   return (
     <group ref={ref} position={player.position}>
-      <AvatarBody tagColor={player.color} name={player.name} bubble={bubble} speedRef={speedRef} />
+      <AvatarBody
+        tagColor={player.color}
+        name={player.name}
+        bubble={bubble}
+        speedRef={speedRef}
+        model={lookModel(player.look)}
+        outfit={player.look?.outfit}
+      />
     </group>
   );
 }
@@ -758,6 +791,41 @@ function lerpAngle(a, b, t) {
   let d = ((b - a + Math.PI) % (Math.PI * 2)) - Math.PI;
   if (d < -Math.PI) d += Math.PI * 2;
   return a + d * t;
+}
+
+/* ───────────── 입장 화면: 캐릭터 미리보기 ───────────── */
+
+function TurntableAvatar({ look }) {
+  const ref = useRef();
+  const speedRef = useRef(0);
+  useFrame((_, dt) => {
+    if (ref.current) ref.current.rotation.y += dt * 0.9;
+  });
+  return (
+    <group ref={ref}>
+      <AvatarBody model={lookModel(look)} outfit={look.outfit} speedRef={speedRef} hideLabel />
+    </group>
+  );
+}
+
+function LookPreview({ look, charsOk }) {
+  return (
+    <div style={styles.previewBox}>
+      <Canvas dpr={[1, 2]} camera={{ fov: 30, position: [0, 1.05, 3.4] }} onCreated={({ camera }) => camera.lookAt(0, 0.82, 0)}>
+        <hemisphereLight intensity={0.9} groundColor="#9aa" />
+        <directionalLight position={[2, 4, 3]} intensity={1.3} />
+        <mesh rotation-x={-Math.PI / 2}>
+          <circleGeometry args={[0.7, 40]} />
+          <meshStandardMaterial color="#e9e3f0" />
+        </mesh>
+        <CharsContext.Provider value={charsOk}>
+          <Suspense fallback={null}>
+            <TurntableAvatar look={look} />
+          </Suspense>
+        </CharsContext.Provider>
+      </Canvas>
+    </div>
+  );
 }
 
 /* ───────────── 입력: 키보드 + 가상 조이스틱 ───────────── */
@@ -847,6 +915,13 @@ export default function App() {
   const [bubbles, setBubbles] = useState({});
   const [connected, setConnected] = useState(false);
   const [nameInput, setNameInput] = useState(() => localStorage.getItem("cm_name") || "");
+  const [look, setLook] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("cm_look"));
+      if (saved && CHARACTER_TYPES.some((t) => t.id === saved.type) && OUTFIT_COLORS.some((c) => c.hex === saved.outfit)) return saved;
+    } catch {}
+    return DEFAULT_LOOK;
+  });
   const [chat, setChat] = useState("");
   const [treasures, setTreasures] = useState([]);
   const [nearbyTarget, setNearbyTarget] = useState(null); // { type: "npc" | "treasure" | "elevator", id }
@@ -1045,8 +1120,9 @@ export default function App() {
     const name = nameInput.trim();
     if (!name) return;
     localStorage.setItem("cm_name", name);
+    localStorage.setItem("cm_look", JSON.stringify(look));
     setLobbyMsg("");
-    connectAs(name);
+    connectAs(name, look);
   };
 
   const sendChat = (e) => {
@@ -1062,8 +1138,37 @@ export default function App() {
     return (
       <div style={styles.lobby}>
         <form onSubmit={enter} style={styles.lobbyCard}>
-          <h1 style={{ margin: "0 0 6px", fontSize: 24 }}>🏢 회사 메타버스</h1>
-          <p style={{ margin: "0 0 18px", color: "#6b7280", fontSize: 14 }}>이름을 입력하고 입장하세요</p>
+          <h1 style={{ margin: "0 0 4px", fontSize: 22 }}>🏢 회사 메타버스</h1>
+          <p style={{ margin: "0 0 10px", color: "#6b7280", fontSize: 13 }}>캐릭터와 옷 색을 고르고 입장하세요</p>
+          <LookPreview look={look} charsOk={charsOk} />
+          <div style={styles.typeRow}>
+            {CHARACTER_TYPES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                style={{ ...styles.typeBtn, ...(look.type === t.id ? styles.typeBtnOn : null) }}
+                onClick={() => setLook((l) => ({ ...l, type: t.id }))}
+              >
+                <b>{t.label}</b>
+                <span style={{ fontSize: 11, opacity: 0.8 }}>{t.sub}</span>
+              </button>
+            ))}
+          </div>
+          <div style={styles.swatchGrid}>
+            {OUTFIT_COLORS.map((c) => (
+              <button
+                key={c.hex}
+                type="button"
+                title={c.label}
+                aria-label={c.label}
+                style={{ ...styles.swatch, background: c.hex, ...(look.outfit === c.hex ? styles.swatchOn : null) }}
+                onClick={() => setLook((l) => ({ ...l, outfit: c.hex }))}
+              />
+            ))}
+          </div>
+          <p style={{ margin: "0 0 12px", fontSize: 12, color: "#6b7280" }}>
+            가디건 색: {OUTFIT_COLORS.find((c) => c.hex === look.outfit)?.label}
+          </p>
           <input
             style={styles.input}
             value={nameInput}
@@ -1223,8 +1328,15 @@ export default function App() {
 /* ───────────── 스타일 ───────────── */
 
 const styles = {
-  lobby: { position: "fixed", inset: 0, display: "grid", placeItems: "center", background: "linear-gradient(160deg,#1f2937,#4b0b33)", padding: 20 },
-  lobbyCard: { width: "100%", maxWidth: 340, background: "#fff", borderRadius: 18, padding: 24, boxSizing: "border-box", textAlign: "center" },
+  lobby: { position: "fixed", inset: 0, display: "flex", justifyContent: "center", alignItems: "safe center", overflowY: "auto", background: "linear-gradient(160deg,#1f2937,#4b0b33)", padding: 16, boxSizing: "border-box", touchAction: "pan-y" },
+  lobbyCard: { width: "100%", maxWidth: 360, background: "#fff", borderRadius: 18, padding: "18px 18px 20px", boxSizing: "border-box", textAlign: "center", margin: "auto 0" },
+  previewBox: { height: 210, borderRadius: 14, background: "linear-gradient(180deg,#f6f2fb,#ece6f3)", marginBottom: 10, overflow: "hidden" },
+  typeRow: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 10 },
+  typeBtn: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "8px 0", borderRadius: 10, border: "2px solid #e5e7eb", background: "#fff", color: "#374151", fontSize: 14 },
+  typeBtnOn: { borderColor: "#e6007e", background: "#fdf0f7", color: "#be005f" },
+  swatchGrid: { display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, marginBottom: 6, justifyItems: "center" },
+  swatch: { width: 34, height: 34, borderRadius: "50%", border: "2px solid rgba(0,0,0,.12)", boxShadow: "inset 0 0 0 2px #fff" },
+  swatchOn: { border: "3px solid #111827", transform: "scale(1.1)" },
   input: { width: "100%", boxSizing: "border-box", fontSize: 16, padding: "12px 14px", borderRadius: 10, border: "1px solid #d1d5db", marginBottom: 12, outline: "none" },
   button: { width: "100%", fontSize: 16, fontWeight: 700, padding: "12px 0", border: 0, borderRadius: 10, background: "#e6007e", color: "#fff" },
   topBar: { position: "absolute", top: "max(12px, env(safe-area-inset-top))", left: 12, padding: "6px 12px", borderRadius: 999, background: "rgba(0,0,0,.55)", color: "#fff", fontSize: 13, display: "flex", alignItems: "center", gap: 6, zIndex: 5 },

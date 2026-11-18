@@ -73,6 +73,13 @@ client/public/floor_7f.glb
 - NPC 6명 위치·층·대사·가디건 색: `client/src/App.jsx` 맨 위 `NPCS`
 - 맵이 너무 크거나 작으면 `client/src/App.jsx` 의 `MAP_SCALE`, 이동 범위는 `BOUNDS`
 
+## 캐릭터
+
+- 입장 화면에서 **남성 / 여성(긴 머리) / 여성(단발)** 과 **가디건 색 12가지** 선택 (다른 사람에게도 그대로 보임, 다음 접속 때 기억)
+- 캐릭터 모델: `client/public/characters.glb`
+  - 여성 캐릭터는 `blender/build_characters.py` 로 생성 (원본 `glb_original/characters.glb` 를 읽어 추가)
+  - 색 목록 `OUTFIT_COLORS`, 종류 목록 `CHARACTER_TYPES` 는 `client/src/App.jsx` 맨 위
+
 ## 보물 찾기
 
 - 보물 위치·이름: `server/index.js` 의 `treasures` 에서 수정 (맵 좌표에 맞추세요)

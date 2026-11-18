@@ -24,14 +24,16 @@ function getPlayerKey() {
 }
 
 let lastName = "";
-export function connectAs(name) {
+let lastLook = null; // { type, outfit } 캐릭터 모양·가디건 색
+export function connectAs(name, look) {
   lastName = name;
+  lastLook = look || null;
   if (!socket.connected) socket.connect();
-  else socket.emit("join", { name, key: getPlayerKey() });
+  else socket.emit("join", { name, key: getPlayerKey(), look: lastLook });
 }
 // 연결(재연결 포함)될 때마다 자동 입장
 socket.on("connect", () => {
-  if (lastName) socket.emit("join", { name: lastName, key: getPlayerKey() });
+  if (lastName) socket.emit("join", { name: lastName, key: getPlayerKey(), look: lastLook });
 });
 
 // 서버 응답(Acknowledgement)을 Promise 로 받기 — 5초 안에 응답 없으면 실패 처리

@@ -90,6 +90,11 @@ const claimLocks = new Set(); // 동시 요청 순서 보장용
 
 const COLORS = ["#e6007e", "#ff8a00", "#00a3e0", "#22b573", "#8e44ad", "#f1c40f", "#e74c3c", "#1abc9c"];
 const randomColor = () => COLORS[Math.floor(Math.random() * COLORS.length)];
+const LOOK_TYPES = ["male", "female_long", "female_short"];
+const cleanLook = (look) => ({
+  type: LOOK_TYPES.includes(look?.type) ? look.type : "male",
+  outfit: /^#[0-9a-f]{6}$/i.test(look?.outfit || "") ? look.outfit : "#2f5fb3",
+});
 const clean = (s, max) => String(s ?? "").replace(/[<>]/g, "").trim().slice(0, max);
 const dist2D = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
 const publicPlayer = ({ key, ...p }) => p; // 고유키는 다른 사람에게 보내지 않음
@@ -152,7 +157,7 @@ async function saveClaim(treasureId, player) {
 /* ───────── 이벤트 ───────── */
 io.on("connection", (socket) => {
   // 1) 입장
-  socket.on("join", ({ name, key } = {}, ack) => {
+  socket.on("join", ({ name, key, look } = {}, ack) => {
     if (players.has(socket.id)) return; // 중복 join 무시
     if (players.size >= MAX_PLAYERS) {
       const res = { ok: false, message: `정원(${MAX_PLAYERS}명)이 가득 찼습니다. 잠시 후 다시 시도해 주세요.` };
@@ -165,6 +170,7 @@ io.on("connection", (socket) => {
       key: clean(key, 64) || socket.id,
       name: clean(name, 12) || `사원_${socket.id.slice(0, 4)}`,
       color: randomColor(),
+      look: cleanLook(look), // 캐릭터 모양·가디건 색
       floor: START_FLOOR,
       position: [START_POSITION[0] + Math.random() * 1.6 - 0.8, 0, START_POSITION[2] + Math.random() * 0.6 - 0.3],
       rotationY: 0,
