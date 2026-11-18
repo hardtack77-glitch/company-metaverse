@@ -95,7 +95,7 @@ const NPCS = [
     dialog: ["REST BAR에서 잠깐 쉬어가세요~", "일언천금! 말 한마디가 천금이에요."],
   },
   {
-    id: "npc_7f_room", floor: "7F", name: "상담실 리더", color: "#0ea5e9", position: [-8.35, 0, -2.4],
+    id: "npc_7f_room", floor: "7F", name: "상담실 리더", color: "#0ea5e9", position: [-8.35, 0, -4.0], // 상담석이 북쪽으로 1.6m 이동한 만큼 함께 이동
     dialog: ["64석 상담실이에요. 통화 중이니 조용히 부탁해요.", "상담실 에티켓을 잘 지키면 좋은 일이 생길지도?"],
   },
 ];
