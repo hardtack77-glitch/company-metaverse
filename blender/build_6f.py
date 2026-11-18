@@ -478,7 +478,7 @@ def line_ns(name, sx, y0, nseat, skip=(), south_end="plain"):
             office_chair_x(f"{q}_Chair", sx + sg * 1.05, cy, -sg)
     for k in range(0, nseat, 2):
         pothos(f"{name}_Top_Plant_{k}", sx, y0 + (k + 0.5) * P, 1.23, 0.85)
-    ex0, ex1 = sx - 1.35, sx + 1.35
+    ex0, ex1 = sx - 1.25, sx + 1.25
     if south_end == "planter":  # 철제 프레임 + 메시 + 회색 패브릭 + 나무 화분함
         e = f"{name}_AisleEnd"
         for k, xx in enumerate((ex0, sx - 0.03, ex1 - 0.06)):
@@ -534,7 +534,7 @@ floor("Sleep_Room_Floor", -16.0, -3.6, -8.8, 0.2, M["carpet"])
 floor("Massage_Room_Floor", -8.4, -7.9, -1.4, -3.6, M["oak_floor"])
 floor("Resource_Room_Floor", -16.0, -7.9, -8.4, -3.6, M["office_gray"])
 floor("Office1_Floor", -0.7, 1.0, 7.6, 10.4, M["office_gray"])
-floor("Psych_Room_Floor", 1.8, -7.95, 5.2, -4.0, M["oak_floor"])
+floor("Psych_Room_Floor", 1.8, -7.95, 6.8, -1.0, M["oak_floor"])
 floor("Office2_Floor", -9.6, 2.9, -0.7, 16.0, M["office_gray"])
 
 box("Yellow_Tactile_Main", -8.3, -10.5, 0, 2.1, -10.1, 0.01, M["tape_yellow"])
@@ -573,7 +573,7 @@ for k, (dy, z) in enumerate([(0, 0.75), (0.1, 0.9), (-0.08, 0.95)]):
 ext("Hall_Extinguisher", 2.45, -10.05)
 tape_square("Hall_Wait_Square_1", 1.0, -12.0, 0.45)
 tape_square("Hall_Wait_Square_2", 1.0, -9.1, 0.45)
-wall("Hall_North_Wall_E", 1.8, -8.0, 5.2, -8.0, M["beige_stone"])
+wall("Hall_North_Wall_E", 1.8, -8.0, 6.8, -8.0, M["beige_stone"])
 
 # =====================================================================
 #  2) 바깥 복도 (화장실 2곳 · 직원 사진 벽돌벽 · 폰부스 · 서쪽 출입구)
@@ -665,26 +665,46 @@ ext("Corridor_Extinguisher", 1.45, -7.4)
 # =====================================================================
 #  3-2) 심리상담실 (출입구 들어와서 오른쪽) — 따뜻한 조명 · 소파 · 1인 체어 · 러그 · 화분
 # =====================================================================
-wall("Psych_Room_East_Wall", 5.2, -8.0, 5.2, -4.0, M["panel_white"])
-wall("Psych_Room_North_Wall", 1.8, -4.0, 5.2, -4.0, M["panel_white"])
-box("Psych_Room_Wood_Accent", 5.12, -7.6, 0, 5.15, -4.4, 2.6, M["wood_panel"])
-box("Psych_Room_Rug", 2.4, -7.2, 0, 4.6, -4.8, 0.01, M["pink_back"])
-cbox("Psych_Sofa_Base", 4.7, -6.0, 0, 0.75, 1.8, 0.42, M["gray_pouf"])
-cbox("Psych_Sofa_Back", 5.0, -6.0, 0.42, 0.15, 1.8, 0.45, M["gray_pouf"])
+wall("Psych_Room_East_Wall", 6.8, -8.0, 6.8, -1.0, M["panel_white"])
+wall("Psych_Room_North_Wall", 1.8, -1.0, 6.8, -1.0, M["panel_white"])
+box("Psych_Room_Wood_Accent", 6.72, -7.6, 0, 6.75, -4.4, 2.6, M["wood_panel"])
+# 상담 공간 (남쪽): 러그 · 소파 · 1인 체어 2개 · 티테이블 · 스탠드 · 화분
+box("Psych_Room_Rug", 2.4, -7.2, 0, 5.4, -4.8, 0.01, M["pink_back"])
+cbox("Psych_Sofa_Base", 5.0, -6.0, 0, 0.75, 1.8, 0.42, M["gray_pouf"])
+cbox("Psych_Sofa_Back", 5.3, -6.0, 0.42, 0.15, 1.8, 0.45, M["gray_pouf"])
 for k, y in enumerate((-6.6, -5.4)):
-    cbox(f"Psych_Sofa_Cushion_{k}", 4.85, y, 0.42, 0.14, 0.38, 0.35, M["yellow_cush"] if k else M["pink_back"])
+    cbox(f"Psych_Sofa_Cushion_{k}", 5.15, y, 0.42, 0.14, 0.38, 0.35, M["yellow_cush"] if k else M["pink_back"])
 for k, y in enumerate((-6.85, -5.55)):
     cbox(f"Psych_Armchair_{k}", 2.65, y, 0, 0.66, 0.66, 0.42, M["fabric_blue"])
     cbox(f"Psych_Armchair_Back_{k}", 2.35, y, 0.42, 0.1, 0.66, 0.45, M["fabric_blue"])
-cyl("Psych_Round_Table", 3.65, -6.2, 0, 0.38, 0.48, M["wood_light"], 20)
-cbox("Psych_Tissue_Box", 3.65, -6.2, 0.48, 0.22, 0.12, 0.08, M["white"])
-cyl("Psych_Tea_Cup_1", 3.5, -6.15, 0.48, 0.04, 0.08, M["white"], 10)
-cyl("Psych_Tea_Cup_2", 3.8, -5.85, 0.48, 0.04, 0.08, M["white"], 10)
-cyl("Psych_Floor_Lamp_Pole", 4.75, -7.55, 0, 0.02, 1.5, M["black"], 6)
-cyl("Psych_Floor_Lamp_Shade", 4.75, -7.55, 1.45, 0.2, 0.28, M["amber"], 16, r2=0.14)
+cyl("Psych_Round_Table", 3.8, -6.2, 0, 0.38, 0.48, M["wood_light"], 20)
+cbox("Psych_Tissue_Box", 3.8, -6.2, 0.48, 0.22, 0.12, 0.08, M["white"])
+cyl("Psych_Tea_Cup_1", 3.65, -6.35, 0.48, 0.04, 0.08, M["white"], 10)
+cyl("Psych_Tea_Cup_2", 3.95, -6.05, 0.48, 0.04, 0.08, M["white"], 10)
+cyl("Psych_Floor_Lamp_Pole", 6.35, -7.55, 0, 0.02, 1.5, M["black"], 6)
+cyl("Psych_Floor_Lamp_Shade", 6.35, -7.55, 1.45, 0.2, 0.28, M["amber"], 16, r2=0.14)
 plant("Psych_Plant", 2.2, -7.55, 1.3)
-box("Psych_Frame_1", 3.0, -4.08, 1.3, 3.6, -4.06, 1.9, M["photo"][4])
-box("Psych_Frame_2", 3.9, -4.08, 1.3, 4.5, -4.06, 1.9, M["photo"][3])
+for k, y in enumerate((-6.9, -5.4)):
+    box(f"Psych_Frame_{k + 1}", 6.71, y - 0.3, 1.3, 6.73, y + 0.3, 1.9, M["photo"][4 - k])
+# 업무 공간 (북쪽): 실장 책상 · 책장 · 상담 의자
+cbox("Psych_Desk_Top", 5.3, -2.6, 0.72, 1.6, 0.75, 0.04, M["wood_light"])
+cbox("Psych_Desk_Panel", 5.3, -2.97, 0, 1.6, 0.04, 0.72, M["wood_panel"])
+cbox("Psych_Desk_Pedestal", 5.85, -2.6, 0, 0.45, 0.6, 0.7, M["white"])
+cbox("Psych_Desk_Monitor", 5.1, -2.4, 0.76, 0.5, 0.03, 0.32, M["black"])
+cbox("Psych_Desk_Books", 4.75, -2.75, 0.76, 0.25, 0.18, 0.15, M["book"][1])
+cyl("Psych_Desk_Plant", 5.85, -2.8, 0.76, 0.06, 0.1, M["pot"], 10)
+leaf_ball("Psych_Desk_Plant_Leaf", 5.85, -2.8, 0.95, 0.09, M["plant"])
+office_chair("Psych_Desk_Chair", 5.3, -1.9, -1)
+cbox("Psych_Guest_Chair", 5.3, -3.45, 0, 0.5, 0.5, 0.45, M["fabric_blue"])
+cbox("Psych_Guest_Chair_Back", 5.3, -3.7, 0.45, 0.5, 0.08, 0.4, M["fabric_blue"])
+for k, x in enumerate((2.45, 3.45)):  # 북쪽 벽 책장
+    cbox(f"Psych_Bookshelf_{k}", x, -1.28, 0, 0.95, 0.4, 2.0, M["wood_light"])
+    for j, z in enumerate((0.1, 0.55, 1.0, 1.45)):
+        cbox(f"Psych_Shelf_Books_{k}_{j}", x, -1.3, z + 0.04, 0.8, 0.3, 0.32, M["book"][(k * 4 + j) % 6])
+cbox("Psych_Bookshelf_East", 6.55, -3.0, 0, 0.4, 1.4, 1.2, M["wood_light"])
+for j, z in enumerate((0.1, 0.6)):
+    cbox(f"Psych_East_Books_{j}", 6.55, -3.0, z + 0.04, 0.3, 1.2, 0.32, M["book"][(j + 2) % 6])
+T("Psych_Desk_Nameplate", "심리상담실장", 5.3, -3.0, 0.82, 0.4, 0.06, M["text_dark"], facing="S", fallback="COUNSELOR")
 T("Psych_Wall_Text", "마음도 쉬어 가는 곳", 3.5, -7.93, 2.3, 1.6, 0.16, M["text_navy"], facing="N", fallback="REST YOUR MIND")
 
 # =====================================================================
@@ -839,10 +859,10 @@ T("Resource_Sign", "자료실", -9.5, -7.88, 2.45, 0.5, 0.1, M["text_dark"], fac
 wall("Office1_South_Wall", 1.8, 1.0, 7.6, 1.0, M["panel_white"])
 wall("Office1_East_Wall", 7.6, 1.0, 7.6, 10.4, M["wall_white"])
 wall("Office1_North_Wall", -0.7, 10.4, 7.6, 10.4, M["wall_white"])
-wall("Office1_West_Wall", -0.7, 2.9, -0.7, 10.4, M["panel_white"], openings=[(6.0, 7.4, 2.6)])
+wall("Office1_West_Wall", -0.7, 2.9, -0.7, 10.4, M["panel_white"])  # 사무실2와 통하는 문 없음 (막힌 벽)
 for i in range(5):
     box(f"Office1_Window_Blind_{i}", 7.48, 1.3 + i * 1.8, 0.9, 7.52, 2.9 + i * 1.8, 3.0, M["roller"])
-box("Office1_Low_Cabinet", 7.22, 2.6, 0, 7.52, 10.2, 0.7, M["wood_light"])
+box("Office1_Low_Cabinet", 7.32, 2.6, 0, 7.52, 10.2, 0.7, M["wood_light"])
 # 입구 화분 칸막이 (메시 + 나무 화분함)
 box("Front_Planter_Box", -0.65, 2.85, 0, 0.2, 3.15, 0.9, M["wood_light"])
 for k, x in enumerate((-0.45, -0.05)):

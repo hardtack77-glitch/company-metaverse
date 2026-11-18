@@ -213,6 +213,47 @@ STAFF.push(
   },
 );
 
+// 6층 (CS1그룹) — 블렌더 좌표 [x, y] → 웹 [x, 0, -y]
+const W6 = (pts) => pts.map(([x, y]) => [x, 0, -y]);
+const SEAT_W = Math.PI / 2; // 서쪽 자리: 동쪽 칸막이를 바라봄
+const LONG = "Character_Female_LongHair";
+const MALE = "Character_Player_Consultant";
+const six = (who, title, extra, lines, male = false) => {
+  const lk = look(who, male);
+  return {
+    id: `staff_6F_${who}`, floor: "6F", name: `${who} ${title}`, ...lk, ...extra,
+    dialog: [`안녕하세요, 6층 ${who} ${title}입니다.`, ...lines],
+  };
+};
+STAFF.push(
+  // 위쪽 사무실 (자동문 안쪽, 팀장석 2석이 붙어 있는 곳)
+  six("박정학", "총무", { path: W6([[-4.75, 4.5], [-4.75, 15.2], [-4.75, 9.9], [-2.0, 9.9], [-4.75, 9.9]]) },
+    ["비품이나 시설 문의는 언제든 말씀하세요!", "사무실이 쾌적해야 상담도 잘 되죠. 불편한 점 있으면 알려 주세요."], true),
+  six("박하늘", "총무", { path: W6([[-1.3, 10.2], [-1.3, 14.2], [-1.3, 10.2], [-2.6, 6.5], [-4.6, 6.5], [-2.6, 6.5]]), pathOffset: 0.5 },
+    ["택배, 우편물, 회의실 예약은 총무팀으로!", "오늘도 다들 안전하게 근무하세요. 응원합니다!"], true),
+  six("박남수", "PM", { position: [-3.85, 0, -15.52], rotationY: 0, pose: "sit" },
+    ["일정과 품질, 꼼꼼히 챙기고 있어요.", "오늘도 목표 달성을 향해 함께 갑시다!"], true),
+  { ...six("류희숙", "재무회계", { position: [-4.13, 0, -12.35], rotationY: SEAT_W, pose: "sit" },
+    ["경비 처리는 기한 안에 부탁드려요~", "숫자는 정직해요. 꼼꼼함이 신뢰를 만듭니다!"]), model: LONG },
+  // 통로와 연결된 상담석 (사무실1)
+  six("황미애", "실장", { position: [0.57, 0, -4.55], rotationY: SEAT_W, pose: "sit" }, pickLines(LINES.chief, "황미애")),
+  six("이영재", "실장", { position: [0.57, 0, -5.85], rotationY: SEAT_W, pose: "sit" }, pickLines(LINES.chief, "이영재")),
+  six("오연지", "프로", { position: [0.57, 0, -7.15], rotationY: SEAT_W, pose: "sit" },
+    ["고객의 목소리에 귀 기울이는 중이에요!", "공감 한마디가 통화를 바꿔요. 오늘도 화이팅!"]),
+  six("오정대", "강사", { position: [3.92, 0, -5.85], rotationY: SEAT_W, pose: "sit" },
+    ["신입 상담사 교육을 맡고 있어요. 궁금한 건 언제든 물어보세요!", ...pickLines(LINES.coach, "오정대", 1)], true),
+  six("최숙영", "과장", { path: W6([[3.22, 3.4], [3.22, 9.75], [-0.15, 9.75], [-0.15, 4.3], [-0.15, 9.75], [3.22, 9.75]]) },
+    pickLines(LINES.leader, "최숙영")),
+  six("정옥남", "실장", { path: W6([[3.22, 3.4], [6.9, 3.4], [6.9, 9.75], [3.22, 9.75]]), pathOffset: 0.5 },
+    pickLines(LINES.chief, "정옥남")),
+  six("송재진", "강사", { path: W6([[5.8, 3.3], [2.6, 3.3], [3.22, 3.3], [3.22, 8.5], [3.22, 3.3]]), pathOffset: 0.25 },
+    ["교육장에서 배운 걸 현장에서 써 보는 중이죠? 잘하고 있어요!", ...pickLines(LINES.coach, "송재진", 1)], true),
+  // 심리상담실
+  six("이혜진", "심리상담실장", { position: [5.3, 0, 1.95], rotationY: 0, pose: "sit" },
+    ["마음이 힘들 땐 언제든 편하게 찾아오세요.", "이곳에서 나눈 이야기는 비밀이 지켜져요. 차 한잔하며 쉬어 가세요."]),
+);
+void MALE;
+
 export const STAFF_NPCS = STAFF;
 
 /* ───────── 상담석에 앉아 일하는 직원 (배경용, 좌석의 절반 정도) ───────── */
