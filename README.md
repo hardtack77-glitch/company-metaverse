@@ -67,7 +67,7 @@ client/public/floor_7f.glb
    예) 블렌더에서 엘리베이터가 X=11, Y=11 이면 웹 좌표는 [11, 0, -11]
 
 ### 스크립트로 다시 만들기 (blender 폴더)
-- `blender/build_1f.py` → 1층, `blender/build_7f.py` → 7·8·9층 상담실 (파일 맨 위 `FLOOR_NO` 를 7/8/9 로 바꿔 각각 실행) (기존 구역 위치 유지 + 영상·사진 디테일)
+- `blender/build_1f.py` → 1층, `blender/build_6f.py` → 6층 (CS1그룹 사무실), `blender/build_7f.py` → 7·8·9층 상담실 (파일 맨 위 `FLOOR_NO` 를 7/8/9 로 바꿔 각각 실행) (기존 구역 위치 유지 + 영상·사진 디테일)
 - 블렌더 5.x → Scripting 탭 → 파일 열기 → Run Script 하면 `client/public/floor_?f.glb` 로 바로 내보냄
 - 내보낸 뒤 용량을 줄이려면: `npx @gltf-transform/cli meshopt 입력.glb 출력.glb`
 

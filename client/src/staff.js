@@ -269,7 +269,7 @@ export const RECRUIT_HELLOS = [
 ];
 const RECRUITER_SPOTS = {
   "1F": { position: [1.5, 0, 6.5], rotationY: 0 }, // 로비 (정문 쪽을 바라봄)
-  "6F": { position: [-1.0, 0, 10.55], rotationY: Math.PI / 2 }, // 엘리베이터 홀
+  "6F": { position: [-1.5, 0, 12.3], rotationY: Math.PI / 2 }, // 엘리베이터 홀 남서쪽 구석 (지나가는 길 비움)
   "7F": { position: [-3.0, 0, 9.8], rotationY: Math.PI / 2 }, // 엘리베이터 홀 옆 복도
   "8F": { position: [-3.0, 0, 9.8], rotationY: Math.PI / 2 },
   "9F": { position: [-3.0, 0, 9.8], rotationY: Math.PI / 2 },
