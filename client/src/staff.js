@@ -246,3 +246,35 @@ export function seatedWorkers(floor) {
   }
   return out;
 }
+
+/* ───────── 채용담당자 (모든 층에 1명씩, 같은 모습) ───────── */
+// 말을 걸면 메뉴: 1. 미니게임하기  2. 임직원추천 지원하기  3. 인사하기
+export const RECRUIT_LINKS = {
+  game: "https://planning-with-ai-62d35.web.app/",
+  apply: "https://careers.cslguplus.co.kr/RecruitNotice/Index?area=03&workerType=",
+};
+export const RECRUIT_GREETING = "안녕하세요! 대구센터 채용담당자입니다.";
+// 3번 '인사하기' 를 누를 때마다 차례로 바뀌는 인사말 (자유롭게 추가·수정)
+export const RECRUIT_HELLOS = [
+  "오늘도 반가워요! 좋은 하루 보내세요 😊",
+  "대구고객센터에 관심 가져 주셔서 감사합니다!",
+  "함께 일하고 싶은 분이 있다면 언제든 추천해 주세요 🙌",
+  "웃는 얼굴로 일하는 곳, 대구고객센터입니다!",
+  "식사는 잘 챙기셨나요? 건강이 최고예요!",
+  "오늘도 고객의 마음을 여는 공감 한마디, 화이팅!",
+  "새로운 동료를 기다리고 있어요. 주변에 소개 부탁드려요~",
+  "보물은 몇 개 찾으셨어요? 아직이라면 구석구석 둘러보세요!",
+  "좋은 사람이 좋은 사람을 부른대요. 임직원 추천 기다릴게요!",
+  "퇴근까지 조금만 더 힘내요! 응원합니다 💪",
+];
+const RECRUITER_SPOTS = {
+  "1F": { position: [1.5, 0, 6.5], rotationY: 0 }, // 로비 (정문 쪽을 바라봄)
+  "6F": { position: [-1.0, 0, 10.55], rotationY: Math.PI / 2 }, // 엘리베이터 홀
+  "7F": { position: [-3.0, 0, 9.8], rotationY: Math.PI / 2 }, // 엘리베이터 홀 옆 복도
+  "8F": { position: [-3.0, 0, 9.8], rotationY: Math.PI / 2 },
+  "9F": { position: [-3.0, 0, 9.8], rotationY: Math.PI / 2 },
+};
+export const RECRUITERS = Object.entries(RECRUITER_SPOTS).map(([floor, spot]) => ({
+  id: `recruiter_${floor}`, floor, name: "채용담당자", model: "Character_Player_Consultant", color: "#1f2a44",
+  ...spot, menu: "recruiter", dialog: [RECRUIT_GREETING],
+}));

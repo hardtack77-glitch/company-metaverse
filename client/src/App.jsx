@@ -6,7 +6,7 @@ import { Html, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { socket, connectAs, claimTreasure, changeFloor, submitDart } from "./socket.js";
 import DartGame from "./DartGame.jsx";
-import { STAFF_NPCS, COUNSEL_FLOORS, seatedWorkers } from "./staff.js";
+import { STAFF_NPCS, COUNSEL_FLOORS, seatedWorkers, RECRUITERS, RECRUIT_LINKS, RECRUIT_GREETING, RECRUIT_HELLOS } from "./staff.js";
 import SeatedCrowd from "./SeatedCrowd.jsx";
 
 /* ───────────── 설정 ───────────── */
@@ -79,6 +79,17 @@ const ELEVATOR_DISTANCE = 2.0; // 엘리베이터 버튼이 뜨는 거리 (서�
 // 강사·실장·팀장·코치 명단은 staff.js 에 따로 있음
 const BASE_NPCS = [
   {
+    // 1층 로비 가운데, 정문(남쪽)을 바라보고 맞이함
+    id: "npc_1f_center_head", floor: "1F", name: "김지연 센터장", model: "Character_Female_LongHair", color: "#e6007e",
+    position: [-1.2, 0, 5.8], rotationY: 0,
+    dialog: [
+      "안녕하세요, 대구고객센터에 오신 것을 환영합니다.",
+      "저희 LG유플러스 고객센터는 NCSI(국가고객만족도조사) 2년 연속 1위를 달성한 역량 있는 센터이며,",
+      "직원의 만족이 고객의 만족으로 이어진다는 믿음으로 직원들이 즐겁고 편하게 회사를 다닐 수 있도록 최선을 다하는 회사입니다.",
+      "편하게 둘러보시고 보물찾기와 미니게임도 즐겨 보세요~ 감사합니다.",
+    ],
+  },
+  {
     id: "npc_1f_desk", floor: "1F", name: "안내데스크 매니저", color: "#e6007e", position: [3.95, 0, 5.6], rotationY: -Math.PI / 2,
     dialog: [
       "LG유플러스 대구고객센터 가상 오피스에 오신 걸 환영합니다!",
@@ -99,7 +110,7 @@ const BASE_NPCS = [
     dialog: ["REST BAR에서 잠깐 쉬어가세요~", "일언천금! 말 한마디가 천금이에요."],
   },
 ];
-const NPCS = [...BASE_NPCS, ...STAFF_NPCS];
+const NPCS = [...BASE_NPCS, ...STAFF_NPCS, ...RECRUITERS];
 
 // glb 가 없을 때 쓰는 임시 맵의 층별 분위기
 const FLOOR_THEME = {
@@ -994,6 +1005,9 @@ export default function App() {
   const [dialog, setDialog] = useState(null); // { title, lines: [], page }
   const [elevatorOpen, setElevatorOpen] = useState(false);
   const [dartOpen, setDartOpen] = useState(false); // 다트 게임 화면
+  const [recruiter, setRecruiter] = useState(null); // 채용담당자 메뉴 { text }
+  const [webView, setWebView] = useState(null); // 앱 안에서 여는 웹페이지 { url, title }
+  const helloIdx = useRef(Math.floor(Math.random() * RECRUIT_HELLOS.length));
   const [busy, setBusy] = useState(false); // 서버 응답 대기 중
   const [spawnSeq, setSpawnSeq] = useState(0); // 층 이동 시 내 아바타를 새 위치에 다시 배치
   const [toast, setToast] = useState(null);
@@ -1123,7 +1137,7 @@ export default function App() {
       : nearbyTarget?.type === "dart" && floor === DART_SPOT.floor
       ? { type: "dart", data: {} }
       : null;
-  const modalOpen = !!dialog || elevatorOpen || dartOpen;
+  const modalOpen = !!dialog || elevatorOpen || dartOpen || !!recruiter || !!webView;
   const canInteract = nearby?.data && !modalOpen;
 
   /* ── 상호작용 ── */
@@ -1133,7 +1147,8 @@ export default function App() {
 
   const interact = () => {
     if (!canInteract || busy) return;
-    if (nearby.type === "npc") openDialog(nearby.data.name, nearby.data.dialog);
+    if (nearby.type === "npc" && nearby.data.menu === "recruiter") setRecruiter({ text: RECRUIT_GREETING });
+    else if (nearby.type === "npc") openDialog(nearby.data.name, nearby.data.dialog);
     else if (nearby.type === "treasure") pickUp(nearby.data);
     else if (nearby.type === "elevator") setElevatorOpen(true);
     else if (nearby.type === "dart") setDartOpen(true);
@@ -1377,6 +1392,53 @@ export default function App() {
 
       {busy && nearby?.type !== "treasure" && <div style={styles.moving}>🛗 이동 중…</div>}
 
+      {recruiter && (
+        <div style={styles.dialog}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={styles.dialogTitle}>채용담당자</div>
+            <button style={styles.menuClose} onClick={() => setRecruiter(null)} aria-label="닫기">✕</button>
+          </div>
+          <p style={styles.dialogText}>{recruiter.text}</p>
+          <div style={styles.menuList}>
+            <button
+              style={styles.menuBtn}
+              onClick={() => {
+                setRecruiter(null);
+                setWebView({ url: RECRUIT_LINKS.game, title: "🎮 미니게임" });
+              }}
+            >
+              1. 미니게임하기
+            </button>
+            {/* 채용 사이트는 새 창(탭)으로 열기 — 메타버스 화면은 그대로 유지 */}
+            <a style={{ ...styles.menuBtn, textDecoration: "none", display: "block" }} href={RECRUIT_LINKS.apply} target="_blank" rel="noopener noreferrer">
+              2. 임직원추천 지원하기
+            </a>
+            <button
+              style={styles.menuBtn}
+              onClick={() => {
+                helloIdx.current = (helloIdx.current + 1) % RECRUIT_HELLOS.length;
+                setRecruiter({ text: RECRUIT_HELLOS[helloIdx.current] });
+              }}
+            >
+              3. 인사하기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {webView && (
+        <div style={styles.webView}>
+          <div style={styles.webViewBar}>
+            <b>{webView.title}</b>
+            <span style={{ display: "flex", gap: 8 }}>
+              <a href={webView.url} target="_blank" rel="noopener noreferrer" style={styles.webViewLink}>새 창으로 열기</a>
+              <button style={styles.webViewClose} onClick={() => setWebView(null)}>닫기 ✕</button>
+            </span>
+          </div>
+          <iframe title={webView.title} src={webView.url} style={styles.webViewFrame} allow="fullscreen; autoplay; clipboard-write" />
+        </div>
+      )}
+
       {dialog && (
         <div style={styles.dialog} onClick={nextDialog}>
           <div style={styles.dialogTitle}>{dialog.title}</div>
@@ -1434,6 +1496,14 @@ const styles = {
   dialog: { position: "absolute", left: 12, right: 12, bottom: "calc(70px + env(safe-area-inset-bottom))", maxWidth: 520, margin: "0 auto", background: "rgba(17,24,39,.95)", color: "#fff", padding: "16px 18px 12px", borderRadius: 14, border: "2px solid #fbbf24", zIndex: 30 },
   dialogTitle: { color: "#fbbf24", fontWeight: 800, fontSize: 14, marginBottom: 6 },
   dialogText: { margin: "0 0 8px", fontSize: 16, lineHeight: 1.55, whiteSpace: "pre-line" },
+  menuList: { display: "grid", gap: 8, marginTop: 4 },
+  menuBtn: { textAlign: "left", background: "#1f2937", color: "#fff", border: "1px solid #4b5563", borderRadius: 10, padding: "11px 14px", fontSize: 15, fontWeight: 700 },
+  menuClose: { background: "transparent", color: "#9ca3af", border: 0, fontSize: 16, padding: 4 },
+  webView: { position: "fixed", inset: 0, background: "#fff", zIndex: 60, display: "flex", flexDirection: "column" },
+  webViewBar: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "calc(8px + env(safe-area-inset-top)) 12px 8px", background: "#111827", color: "#fff", fontSize: 15 },
+  webViewLink: { color: "#93c5fd", fontSize: 13, alignSelf: "center" },
+  webViewClose: { background: "#e6007e", color: "#fff", border: 0, borderRadius: 8, padding: "6px 12px", fontWeight: 700 },
+  webViewFrame: { flex: 1, width: "100%", border: 0 },
   dialogHint: { fontSize: 12, color: "#9ca3af", textAlign: "right" },
   backdrop: { position: "absolute", inset: 0, background: "rgba(0,0,0,.35)", display: "grid", placeItems: "center", zIndex: 40 },
   elevatorPanel: { width: 240, background: "#1f2937", borderRadius: 16, padding: 16, border: "2px solid #94a3b8", display: "flex", flexDirection: "column", gap: 8 },
