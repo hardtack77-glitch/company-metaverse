@@ -1,5 +1,5 @@
 // 메인 3D 캔버스 + 모바일 터치 UI
-// 1F / 6F / 7F 층 전환(엘리베이터) + 층별 블렌더 .glb 맵 + NPC + 보물찾기
+// 1F / 6F / 7F·8F·9F(상담실) 층 전환(엘리베이터) + 층별 블렌더 .glb 맵 + NPC + 보물찾기
 import React, { Component, Suspense, createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, useGLTF } from "@react-three/drei";
@@ -106,7 +106,9 @@ const NPCS = [
 const FLOOR_THEME = {
   "1F": { floorColor: "#e5ddd0", label: "1F 로비" },
   "6F": { floorColor: "#d9dee7", label: "6F 사무실" },
-  "7F": { floorColor: "#d8d2e6", label: "7F 임원실" },
+  "7F": { floorColor: "#d8d2e6", label: "7F 상담실" },
+  "8F": { floorColor: "#d8d2e6", label: "8F 상담실" },
+  "9F": { floorColor: "#d8d2e6", label: "9F 상담실" },
 };
 
 /* ───────────── 3D 맵 ───────────── */

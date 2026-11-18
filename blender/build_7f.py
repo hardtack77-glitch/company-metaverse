@@ -1,7 +1,8 @@
 # =====================================================================
-#  LG U+ 대구고객센터 7층 (상담실) — v2
-#  기존 floor_7f.glb 의 구역 위치는 그대로 두고, 영상·사진의 디테일을 입힘
-#  사용법: 블렌더 5.x → Scripting 탭 → 이 파일 열기 → Run Script
+#  LG U+ 대구고객센터 상담실 층 (7층 · 8층 · 9층 공통 디자인)
+#  7층 영상·사진을 기준으로 만든 상담실 층. 8·9층도 같은 디자인
+#  사용법: 블렌더 5.x → Scripting 탭 → 이 파일 열기 → 아래 FLOOR_NO 숫자(7/8/9) 바꾸고 → Run Script
+#          → client/public/floor_7f.glb / floor_8f.glb / floor_9f.glb 로 내보냄
 #  좌표: 1 = 1m, 바닥 윗면 Z=0, 이름에 Door 가 있으면 통과 가능, Ceiling_ 은 게임에서 숨김
 # =====================================================================
 import bpy
@@ -9,8 +10,10 @@ import bmesh
 import math
 import os
 
-EXPORT_PATH = r"C:\Users\User\company-metaverse\client\public\floor_7f.glb"
-EXPORT_PATH = os.environ.get("FLOOR7F_EXPORT", EXPORT_PATH)  # (테스트용 경로 덮어쓰기)
+FLOOR_NO = 7  # ← 만들 층 번호 (7, 8, 9)
+FLOOR_NO = int(os.environ.get("FLOOR_NO", FLOOR_NO))  # (테스트용 덮어쓰기)
+EXPORT_PATH = rf"C:\Users\User\company-metaverse\client\public\floor_{FLOOR_NO}f.glb"
+EXPORT_PATH = os.environ.get("FLOOR_EXPORT", EXPORT_PATH)  # (테스트용 경로 덮어쓰기)
 # 한글 글꼴 (윈도우 맑은 고딕). 없으면 영어로 대체
 FONT_CANDIDATES = [
     r"C:\Windows\Fonts\malgunbd.ttf",
@@ -31,7 +34,7 @@ for block in (bpy.data.meshes, bpy.data.materials, bpy.data.curves):
         if item.users == 0:
             block.remove(item)
 
-col = bpy.data.collections.get("Floor_7F") or bpy.data.collections.new("Floor_7F")
+col = bpy.data.collections.get(f"Floor_{FLOOR_NO}F") or bpy.data.collections.new(f"Floor_{FLOOR_NO}F")
 if col.name not in bpy.context.scene.collection.children:
     bpy.context.scene.collection.children.link(col)
 
@@ -458,7 +461,7 @@ for i, x in enumerate([1.2, 1.7, 2.2, 2.7]):  # 게시판
     for j, z in enumerate([1.14, 1.64]):
         box(f"Notice_Board_{i}_{j}", x - 0.19, -13.42, z, x + 0.19, -13.39, z + 0.42, M["banner_white"])
 box("Floor_Map_Sign", 3.3, -13.42, 1.2, 3.9, -13.39, 1.8, M["ksqi_blue"])
-T("Floor_Map_Title", "7F 층별 안내", 3.6, -13.37, 1.68, 0.5, 0.08, M["white"], facing="N", fallback="7F MAP")
+T("Floor_Map_Title", f"{FLOOR_NO}F 층별 안내", 3.6, -13.37, 1.68, 0.5, 0.08, M["white"], facing="N", fallback=f"{FLOOR_NO}F MAP")
 wall("West_Hall_Wall", -1.75, -13.5, -1.75, -11.5, M["stone_wall"])
 # 동쪽 주황 벽 + 엘리베이터 2대 (x=4)
 wall("Elev_Orange_Wall", 4.0, -13.5, 4.0, -8.0, M["orange"], t=0.12)
@@ -468,7 +471,7 @@ for nm, (y1, y2) in {"Elev_Door_R": (-12.7, -11.3), "Elev_Door_L": (-9.8, -8.4)}
     box(f"{nm}_Leaf_B", 3.86, (y1 + y2) / 2 + 0.01, 0, 3.9, y2, 2.45, M["elev_door"])
     box(f"{nm}_Display", 3.88, (y1 + y2) / 2 - 0.15, 2.5, 3.9, (y1 + y2) / 2 + 0.15, 2.56, M["text_red"])
     box(f"{nm}_CallBtn", 3.92, y2 + 0.18, 1.0, 3.94, y2 + 0.28, 1.25, M["steel"])
-T("Floor_Num", "7", 3.92, -10.55, 2.35, 0.25, 0.42, M["gold"], facing="W", extrude=0.02)
+T("Floor_Num", str(FLOOR_NO), 3.92, -10.55, 2.35, 0.25, 0.42, M["gold"], facing="W", extrude=0.02)
 T("Hall_Slogan", "일상을 바꿉니다", 3.92, -10.55, 1.72, 1.1, 0.16, M["white"], facing="W", fallback="CHANGE EVERYDAY")
 T("Hall_Slogan_5G", "U+5G", 3.92, -10.55, 1.45, 0.6, 0.18, M["magenta"], facing="W")
 # 화분 + 녹색 플랜터 + 소화기
@@ -553,26 +556,23 @@ box("RestBar_Window", 1.68, -7.3, 0.9, 1.72, -3.0, 2.4, M["glass"])
 box("RestBar_Window_Head", 1.62, -7.3, 2.4, 1.78, -3.0, 3.2, M["wood_panel"])
 box("RestBar_Entry_Head", 1.62, -3.0, 2.4, 1.78, -1.7, 3.2, M["wood_panel"])
 T("RestBar_Sign", "REST BAR", 1.55, -2.35, 2.65, 1.0, 0.2, M["text_dark"], facing="W")
-T("Window_Gamdong_Banner", "감동을 전하는 7층", 1.65, -5.1, 2.0, 2.2, 0.22, M["text_red"], facing="W", fallback="WOW 7F")
+T("Window_Gamdong_Banner", f"감동을 전하는 {FLOOR_NO}층", 1.65, -5.1, 2.0, 2.2, 0.22, M["text_red"], facing="W", fallback=f"WOW {FLOOR_NO}F")
 box("Corr_East_Wood_Mid", 1.62, -1.7, 0, 1.78, -1.3, 3.2, M["wood_panel"])
-box("TV_Wood_Wall", 1.62, -1.3, 0, 1.78, 0.5, 3.2, M["wood_panel"])
-tv("Clova_TV", 1.62, -0.4, 1.25, 1.3, 0.75, "W")
-T("Clova_TV_Text", "LG U+ | NAVER Clova", 1.53, -0.4, 1.62, 1.0, 0.1, M["white"], facing="W")
-cbox("TV_Shelf_Frame", 1.42, -0.4, 0, 0.3, 0.8, 0.85, M["black"])
-cbox("TV_Shelf_Board_1", 1.42, -0.4, 0.4, 0.3, 0.78, 0.03, M["white"])
-cbox("TV_Shelf_Board_2", 1.42, -0.4, 0.82, 0.3, 0.78, 0.03, M["white"])
-dracaena("TV_Dracaena_N", 1.4, 0.25, 1.75)
-dracaena("TV_Dracaena_S", 1.4, -1.05, 1.6)
+box("Corr_East_Wood_Panel", 1.62, -1.3, 0, 1.78, 0.5, 3.2, M["wood_panel"])
 box("Lounge_Frosted_Door", 1.68, 0.5, 0, 1.72, 1.5, 2.4, M["frosted"])
 box("Lounge_Door_Head", 1.62, 0.5, 2.4, 1.78, 1.5, 3.2, M["wood_panel"])
 box("Geometric_Glass_Wall", 1.67, 1.5, 0, 1.73, 8.4, 2.9, M["frosted"])
 for i, y in enumerate([2.9, 4.6, 6.3, 8.0]):
     box(f"Geometric_Glass_Mullion_{i + 1}", 1.64, y - 0.03, 0, 1.76, y + 0.03, 2.9, M["frame_black"])
-box("Corr_East_Wood_N", 1.62, 8.4, 0, 1.78, 15.0, 3.2, M["wood_panel"])
+box("Corr_East_Wood_N1", 1.62, 8.4, 0, 1.78, 9.3, 3.2, M["wood_panel"])
+box("SleepRoom_Door", 1.68, 9.3, 0, 1.72, 10.3, 2.4, M["frosted"])  # 수면실 문(통과 가능)
+box("SleepRoom_Door_Head", 1.62, 9.3, 2.4, 1.78, 10.3, 3.2, M["wood_panel"])
+box("Corr_East_Wood_N2", 1.62, 10.3, 0, 1.78, 15.0, 3.2, M["wood_panel"])
+T("SleepRoom_Sign", "수면실", 1.55, 10.85, 1.7, 0.6, 0.16, M["text_dark"], facing="W", fallback="NAP ROOM")
+T("SleepRoom_Sign_Sub", "조용히 쉬어 가세요", 1.55, 10.85, 1.45, 0.8, 0.08, M["text_gray"], facing="W", fallback="QUIET")
 ext("Corridor_Ext_1", 1.45, -7.6)
 # 북쪽 끝 출입문
-wall("North_Portal_Wall", -1.1, 15.0, 1.7, 15.0, M["charcoal"], openings=[(0.9, 1.9, 2.4)])
-box("North_LGU_SingleDoor", -0.2, 14.97, 0, 0.8, 15.03, 2.4, M["glass"])
+wall("North_End_Wall", -1.1, 15.0, 1.7, 15.0, M["wood_panel"])  # 북쪽 끝: 문 없음
 
 # =====================================================================
 #  4) REST BAR (탕비실 · 창가 바 · 하이테이블)
@@ -619,29 +619,145 @@ T("Trash_Label_2", "재활용", 3.7, -6.99, 0.55, 0.3, 0.06, M["white"], facing=
 dracaena("RestBar_Corner_Plant", 6.35, -3.6, 1.6)
 
 # =====================================================================
-#  5) 휴게 라운지 (블라인드 창가 벤치 · 오토만 · 벽돌 가든)
+#  5) 휴게 라운지 (사진: 핑크·회색·흰색 모듈 소파 섬 · 창가 회색 수납 벤치 · 벽돌 정원 코너)
 # =====================================================================
+M.update({
+    "pink_fabric": mat("Fabric_Pink", hexrgb("c97fb4"), 0.85),
+    "magenta_fabric": mat("Fabric_Magenta", hexrgb("c8235f"), 0.8),
+    "white_fabric": mat("Fabric_White", hexrgb("e9e7e2"), 0.85),
+    "gray_fabric": mat("Fabric_Gray_Lounge", hexrgb("9a9b9e"), 0.9),
+    "dark_cab": mat("Cabinet_DarkGray", hexrgb("55585e"), 0.5),
+    "brick_slate": mat("Brick_Slate_Gray", hexrgb("8a8c8c"), 0.9),
+    "teal": mat("Cushion_Teal", hexrgb("4fb3bf"), 0.7),
+})
 wall("Lounge_East_Wall", 6.7, -1.5, 6.7, 8.4, M["wall_white"])
-box("Lounge7F_Brown_Blind", 6.58, -0.9, 1.1, 6.62, 8.1, 2.9, M["blind"])
-wall("Lounge_North_Wall", 1.7, 8.4, 6.7, 8.4, M["brick_red"])
-box("Window_Bench_Base", 5.8, -0.8, 0, 6.6, 6.8, 0.4, M["cushion_gray"])
-box("Window_Bench_Yellow", 5.85, 0.4, 0.4, 6.55, 2.6, 0.5, M["yellow_cush"])
-box("Window_Bench_Gray", 5.85, 3.2, 0.4, 6.55, 5.6, 0.5, M["gray_pouf"])
-box("Window_Red_Heart", 6.5, 1.8, 0.5, 6.58, 2.2, 0.85, M["red_pouf"])
-cbox("Pouf_Block_Gray1", 4.45, 2.25, 0, 1.1, 1.1, 0.4, M["gray_pouf"])
-cbox("Pouf_Block_Red2", 2.5, 2.8, 0, 0.8, 1.2, 0.4, M["red_pouf"])
-cbox("Pouf_Block_Gray2", 2.5, 4.45, 0, 0.8, 1.5, 0.4, M["gray_pouf"])
-cbox("Pouf_Block_Red1", 4.8, 4.2, 0, 1.0, 1.0, 0.4, M["red_pouf"])
-cbox("Pouf_White_1", 3.6, 0.3, 0, 0.6, 0.6, 0.4, M["white"])
-# 벽돌 가든 (화분 + 하얀 의자 + 호두까기 쿠션 + 파란 상자)
-for i, x in enumerate([2.2, 3.0, 3.8, 4.6, 5.4, 6.2]):
-    cbox(f"Garden_Planter_{i + 1}", x, 8.15, 0, 0.6, 0.35, 0.5, M["brick_red"])
-    leaf_ball(f"Garden_Green_{i + 1}", x, 8.15, 0.75, 0.3, M["plant"] if i % 2 else M["green_dark"])
-for i, x in enumerate([2.9, 4.1]):
-    chair(f"Garden_White_Chair_{i + 1}", x, 7.3, M["white"])
-    cbox(f"Nutcracker_Pillow_{i + 1}", x, 7.45, 0.47, 0.32, 0.12, 0.3, M["text_red"])
-cbox("Lounge_Blue_Box", 5.3, 7.3, 0, 0.45, 0.45, 0.45, M["blue_box"])
-T("Lounge_Sign", "쉼터", 4.2, 8.31, 2.3, 0.9, 0.3, M["white"], facing="S", fallback="LOUNGE")
+box("Lounge7F_Brown_Blind", 6.58, -1.3, 0.75, 6.62, 8.2, 2.9, M["blind"])
+wall("Lounge_North_Wall", 1.7, 8.4, 6.7, 8.4, M["wood_panel"])
+# 창가: 짙은 회색 수납장 + 쏙 들어간 핑크 좌석 2곳
+SEATS = [(0.2, 1.8), (4.0, 5.6)]
+segs, cur = [], -1.3
+for (a_, b_) in SEATS:
+    segs.append((cur, a_)); cur = b_
+segs.append((cur, 8.2))
+for i, (ya, yb) in enumerate(segs):
+    box(f"Window_Cabinet_{i + 1}", 6.1, ya, 0, 6.66, yb, 0.7, M["dark_cab"])
+    box(f"Window_Cabinet_Vent_{i + 1}", 6.25, ya + 0.15, 0.7, 6.5, yb - 0.15, 0.705, M["white"])
+for i, (ya, yb) in enumerate(SEATS):
+    box(f"Window_Seat_Base_{i + 1}", 6.1, ya, 0, 6.66, yb, 0.36, M["dark_cab"])
+    box(f"Window_Seat_Pink_{i + 1}", 6.12, ya + 0.02, 0.36, 6.64, yb - 0.02, 0.45, M["pink_fabric"])
+cbox("Window_Pillow_Pink", 6.5, 4.5, 0.45, 0.14, 0.4, 0.38, M["magenta_fabric"])
+cbox("Window_Pillow_Gray", 6.52, 4.05 + 0.1, 0.45, 0.12, 0.38, 0.36, M["gray_fabric"])
+cyl("Window_Pillow_Teal", 6.5, 5.2, 0.45, 0.2, 0.1, M["teal"], 16).rotation_euler = (0, math.pi / 2, 0)
+cbox("Window_Nutcracker_1", 6.48, 5.45, 0.45, 0.14, 0.12, 0.36, M["text_red"])
+cbox("Window_Nutcracker_2", 6.48, 0.55, 0.45, 0.14, 0.32, 0.32, M["white_fabric"])
+cbox("Window_Pillow_White", 6.52, 1.5, 0.45, 0.12, 0.38, 0.36, M["white_fabric"])
+box("Window_Red_Heart", 6.45, 0.85, 0.45, 6.6, 1.25, 0.8, M["red_pouf"])
+cbox("Window_Photo_Stand", 6.35, 3.0, 0.705, 0.04, 0.2, 0.16, M["text_dark"])
+
+# 모듈 소파 섬 (높이 0.42, 등받이 0.75)
+def pouf(name, x1, y1, x2, y2, m, h=0.42):
+    box(name, x1, y1, 0, x2, y2, h, m)
+
+
+pouf("Pouf_Gray_1", 2.6, 0.3, 3.7, 1.4, M["gray_fabric"])
+pouf("Pouf_Pink_1", 3.7, 0.3, 4.8, 1.3, M["pink_fabric"])
+pouf("Pouf_Back_1", 3.7, 1.3, 4.8, 1.55, M["magenta_fabric"], 0.75)
+pouf("Pouf_White_1", 2.6, 1.4, 3.4, 2.4, M["white_fabric"])
+pouf("Pouf_Gray_2", 3.4, 1.55, 4.9, 2.7, M["gray_fabric"])
+pouf("Pouf_Pink_2", 2.5, 2.4, 3.4, 3.5, M["pink_fabric"])
+pouf("Pouf_Back_2", 2.5, 2.4, 2.75, 3.5, M["magenta_fabric"], 0.75)
+pouf("Pouf_White_2", 3.4, 2.7, 4.4, 3.5, M["white_fabric"])
+pouf("Pouf_Gray_3", 3.0, 3.5, 4.3, 4.5, M["gray_fabric"])
+pouf("Pouf_Pink_3", 4.3, 3.4, 5.1, 4.5, M["pink_fabric"])
+pouf("Pouf_Back_3", 4.85, 3.4, 5.1, 4.5, M["magenta_fabric"], 0.75)
+pouf("Pouf_Gray_4", 2.6, 4.5, 3.6, 5.5, M["gray_fabric"])
+pouf("Pouf_Pink_4", 3.6, 4.5, 4.6, 5.5, M["pink_fabric"])
+pouf("Pouf_Back_4", 3.6, 5.5, 4.6, 5.75, M["magenta_fabric"], 0.75)
+# 인형·쿠션
+leaf_ball("Plush_Yellow_Dino", 4.25, 0.8, 0.5, 0.18, M["yellow_cush"])
+leaf_ball("Plush_White_Bunny", 4.1, 5.0, 0.5, 0.12, M["white"])
+# 작은 원목 사이드 테이블 (검은 다리)
+cyl("Lounge_Side_Table_Top", 3.15, -0.25, 0.52, 0.22, 0.04, M["wood_light"], 18)
+cyl("Lounge_Side_Table_Leg", 3.15, -0.25, 0, 0.16, 0.52, M["frame_black"], 8, r2=0.2)
+
+# 북쪽 코너: 나무 패널 속 회색 벽돌 정원 + 흰 쉘 의자 2개 + 검은 와이어 테이블 + 금색 펜던트
+box("Garden_Brick_Wall", 2.0, 8.25, 0, 4.7, 8.32, 2.6, M["brick_slate"])
+for k in range(13):  # 벽돌 줄눈
+    z = 0.2 * (k + 1)
+    box(f"Garden_Brick_Line_{k}", 2.0, 8.245, z, 4.7, 8.25, z + 0.012, M["mat_dark"])
+box("Garden_Frame_Top", 1.95, 8.2, 2.6, 4.75, 8.32, 2.68, M["frame_black"])
+box("Garden_Frame_L", 1.95, 8.2, 0, 2.0, 8.32, 2.68, M["frame_black"])
+box("Garden_Frame_R", 4.7, 8.2, 0, 4.75, 8.32, 2.68, M["frame_black"])
+box("Garden_Planter_Bed", 2.0, 7.85, 0, 4.7, 8.25, 0.32, M["dark_cab"])
+for k, (x, c) in enumerate([(2.25, "green_dark"), (2.65, "white"), (3.05, "plant"), (3.45, "pink_back"),
+                            (3.85, "plant"), (4.25, "white"), (4.55, "green_dark")]):
+    leaf_ball(f"Garden_Flower_{k}", x, 8.05, 0.42, 0.17, M[c])
+cyl("Garden_Bamboo_Stem", 2.55, 8.05, 0.32, 0.025, 1.6, M["wood_light"], 6)
+for k, (dz, r) in enumerate([(1.9, 0.3), (1.5, 0.34), (1.1, 0.28)]):
+    leaf_ball(f"Garden_Bamboo_Leaves_{k}", 2.55 + (k - 1) * 0.08, 8.0, dz, r, M["plant"])
+for k, (dx, dz) in enumerate([(-0.15, 1.3), (0.1, 1.6), (0.25, 1.15), (0.0, 0.85)]):  # 극락조화
+    cbox(f"Garden_BirdParadise_Leaf_{k}", 4.15 + dx, 8.05, dz - 0.35, 0.18, 0.04, 0.7, M["green_dark"])
+for k in range(5):  # 위에서 늘어진 덩굴
+    leaf_ball(f"Garden_Hanging_Vine_{k}", 2.3 + k * 0.55, 8.15, 2.35 - (k % 2) * 0.2, 0.16, M["plant"])
+for k, (x, z) in enumerate([(3.15, 1.95), (3.45, 2.2)]):  # 금색 기하학 펜던트 + 전구
+    cyl(f"Garden_Pendant_Cord_{k}", x, 7.75, z + 0.3, 0.006, 0.9, M["black"], 6)
+    cyl(f"Garden_Pendant_Gold_{k}", x, 7.75, z, 0.13, 0.3, M["gold"], 6, r2=0.0)
+    leaf_ball(f"Garden_Pendant_Bulb_{k}", x, 7.75, z + 0.08, 0.06, M["amber"])
+for k, x in enumerate([2.55, 4.15]):  # 흰 쉘 의자 (회색 방석, 원목 다리)
+    c = f"Shell_Chair_{k + 1}"
+    for j, (dx, dy) in enumerate([(-0.2, -0.2), (0.2, -0.2), (-0.2, 0.2), (0.2, 0.2)]):
+        cbox(f"{c}_Leg_{j}", x + dx, 7.25 + dy, 0, 0.035, 0.035, 0.4, M["wood_light"])
+    cbox(f"{c}_Seat", x, 7.25, 0.4, 0.58, 0.55, 0.1, M["gray_fabric"])
+    cyl(f"{c}_Shell", x, 7.5, 0.42, 0.32, 0.55, M["white"], 20, r2=0.36)
+    if k == 0:
+        cbox(f"{c}_Pillow", x, 7.38, 0.5, 0.36, 0.14, 0.22, M["gray_fabric"])
+cyl("Wire_Table_Base", 3.35, 7.35, 0, 0.3, 0.42, M["frame_black"], 16, r2=0.34)
+cyl("Wire_Table_Top", 3.35, 7.35, 0.42, 0.34, 0.03, M["black"], 20)
+# 나무 기둥 + 고무나무 (검은 화분)
+box("Lounge_Wood_Column", 4.8, 7.75, 0, 5.4, 8.4, 3.2, M["wood_panel"])
+box("Lounge_Dark_Panel", 5.4, 8.25, 0, 6.66, 8.33, 3.2, M["dark_cab"])
+cbox("Ficus_Pot", 5.75, 7.95, 0, 0.32, 0.32, 0.65, M["black"])
+cyl("Ficus_Stem", 5.75, 7.95, 0.65, 0.02, 0.8, M["wood_dark"], 6)
+for k, z in enumerate([1.0, 1.25, 1.5]):
+    leaf_ball(f"Ficus_Leaves_{k}", 5.75 + (k - 1) * 0.05, 7.95, z, 0.2, M["green_dark"])
+
+# =====================================================================
+#  5-2) 수면실 (휴게 라운지 북쪽 빈 공간 · 안마의자 3대)
+# =====================================================================
+floor("SleepRoom_Floor", 1.7, 8.4, 6.7, 15.0, M["cushion_gray"])
+wall("SleepRoom_East_Wall", 6.7, 8.4, 6.7, 15.0, M["wall_white"])
+wall("SleepRoom_North_Wall", 1.7, 15.0, 6.7, 15.0, M["wall_white"])
+box("SleepRoom_South_Panel", 1.78, 8.48, 0, 6.62, 8.5, 3.0, M["panel_white"])
+box("SleepRoom_Blind", 6.58, 9.0, 1.0, 6.62, 14.4, 2.8, M["blind"])
+box("SleepRoom_Rug", 2.3, 10.6, 0, 6.2, 13.0, 0.01, M["mat_purple"])
+
+
+def massage_chair(name, x, y):
+    """안마의자: 남쪽을 바라봄 (등받이 북쪽, 다리 받침 남쪽)"""
+    cbox(f"{name}_Base", x, y, 0, 0.82, 1.1, 0.35, M["black"])
+    cbox(f"{name}_Seat", x, y - 0.05, 0.35, 0.6, 0.6, 0.15, M["wood_dark"])
+    cbox(f"{name}_Arm_L", x - 0.33, y, 0.35, 0.16, 0.85, 0.42, M["black"])
+    cbox(f"{name}_Arm_R", x + 0.33, y, 0.35, 0.16, 0.85, 0.42, M["black"])
+    back = cbox(f"{name}_Back", x, y + 0.42, 0.45, 0.62, 0.22, 0.95, M["wood_dark"])
+    back.rotation_euler.x = -0.35  # 뒤로 젖힌 등받이
+    cbox(f"{name}_Head_Pillow", x, y + 0.6, 1.25, 0.4, 0.16, 0.22, M["mesh_black"])
+    leg = cbox(f"{name}_Leg_Rest", x, y - 0.62, 0.05, 0.5, 0.2, 0.45, M["wood_dark"])
+    leg.rotation_euler.x = -0.5
+    cbox(f"{name}_Remote", x + 0.33, y - 0.3, 0.77, 0.08, 0.14, 0.03, M["steel"])
+
+
+for i, x in enumerate([2.75, 4.2, 5.65]):
+    massage_chair(f"Massage_Chair_{i + 1}", x, 14.1)
+for i, x in enumerate([3.48, 4.93]):  # 의자 사이 작은 탁자 + 물병
+    cyl(f"SleepRoom_SideTable_{i + 1}", x, 14.3, 0, 0.18, 0.5, M["white"], 16)
+    cyl(f"SleepRoom_Bottle_{i + 1}", x, 14.3, 0.5, 0.04, 0.2, M["glass"], 10)
+cbox("SleepRoom_Coat_Rack_Base", 2.1, 8.9, 0, 0.35, 0.35, 0.04, M["black"])
+cyl("SleepRoom_Coat_Rack", 2.1, 8.9, 0.04, 0.025, 1.7, M["black"], 8)
+cbox("SleepRoom_Blanket_Shelf", 6.35, 10.4, 0, 0.5, 1.2, 0.9, M["wood_light"])
+for i, z in enumerate([0.9, 1.02]):
+    cbox(f"SleepRoom_Blanket_{i + 1}", 6.35, 10.4, z, 0.42, 0.9, 0.12, M["fabric_blue"] if i else M["cushion_gray"])
+dracaena("SleepRoom_Plant", 6.3, 8.95, 1.5)
+T("SleepRoom_Wall_Text", "잠시 쉬어도 괜찮아요", 4.2, 14.9, 2.4, 2.4, 0.22, M["text_navy"], facing="S", fallback="TAKE A BREAK")
 
 # =====================================================================
 #  6) 상담실 — 중앙 기둥 줄을 기준으로 남·북 양쪽에 5줄씩
@@ -754,6 +870,33 @@ MY0, MY1 = -7.9, -5.3  # 회의실 뒷벽 · 앞 유리벽
 box("Meeting_Back_Panel_W", -18.8, -7.93, 0, -12.4, -7.9, 3.0, M["panel_white"])
 box("Meeting_Back_Panel_E", -9.8, -7.93, 0, -1.15, -7.9, 3.0, M["panel_white"])
 wall("Meeting_East_End_Wall", -1.15, MY0, -1.15, MY1, M["wood_panel"])
+# 출입구 왼쪽 벽 (사진): 나무 패널 벽 + LG U+ | NAVER Clova TV + 큰 드라세나 2개 + 철제 선반 + 소화기
+EW = -1.07  # 벽면 (복도 쪽)
+for k, yy in enumerate((-7.25, -6.6, -5.95)):  # 나무 패널 줄눈
+    box(f"Entrance_Wood_Seam_V{k}", EW, yy - 0.006, 0, EW + 0.006, yy + 0.006, 3.0, M["wood_dark"])
+box("Entrance_Wood_Seam_H", EW, MY0, 2.4, EW + 0.006, MY1, 2.41, M["wood_dark"])
+tv("Clova_TV", EW, -6.6, 1.35, 1.2, 0.7, "E")
+cbox("Clova_TV_Screen_White", EW + 0.075, -6.6, 1.39, 0.01, 1.1, 0.62, M["screen_proj"])
+T("Clova_TV_Logo", "LG U+", EW + 0.085, -6.78, 1.7, 0.26, 0.07, M["magenta"], facing="E")
+T("Clova_TV_Text", "NAVER Clova", EW + 0.085, -6.42, 1.7, 0.3, 0.06, M["text_dark"], facing="E")
+SX = EW + 0.18  # 선반 (검은 프레임 + 나무 판)
+for k, yy in enumerate((-7.2, -6.6, -6.0)):
+    for j, xx in enumerate((SX - 0.12, SX + 0.12)):
+        cbox(f"TV_Shelf_Post_{k}_{j}", xx, yy, 0, 0.025, 0.025, 0.95, M["frame_black"])
+for k, z in enumerate((0.05, 0.4, 0.92)):
+    cbox(f"TV_Shelf_Board_{k + 1}", SX, -6.6, z, 0.28, 1.22, 0.03, M["wood_light"])
+pothos("TV_Shelf_Plant_1", SX, -6.9, 0.43, 0.9)
+pothos("TV_Shelf_Plant_2", SX, -6.25, 0.08, 0.8)
+cyl("TV_Shelf_Vase", SX, -6.25, 0.95, 0.05, 0.22, M["glass"], 10)
+leaf_ball("TV_Shelf_Monstera", SX, -6.25, 1.28, 0.13, M["green_dark"])
+cyl("TV_Shelf_Flower_Vase", SX, -6.95, 0.95, 0.03, 0.15, M["glass"], 8)
+leaf_ball("TV_Shelf_Flower", SX, -6.95, 1.13, 0.05, M["umbrella"])
+for k, yy in enumerate((-7.55, -5.65)):  # 흰 화분 커버 + 큰 드라세나
+    cyl(f"Entrance_Pot_Cover_{k + 1}", EW + 0.3, yy, 0, 0.25, 0.55, M["banner_white"], 16, r2=0.21)
+    cyl(f"Entrance_Trunk_{k + 1}", EW + 0.3, yy, 0.55, 0.05, 1.6, M["wood_light"], 8)
+    for j, (dy, z, r) in enumerate(((0, 2.25, 0.42), (0.1, 1.75, 0.3), (-0.12, 1.15, 0.32))):
+        leaf_ball(f"Entrance_Dracaena_{k + 1}_{j}", EW + 0.3, yy + dy, z, r, M["plant"] if j % 2 else M["green_dark"])
+ext("Entrance_Extinguisher", EW + 0.2, -5.42)
 ROOMS = [(-18.8, -15.6), (-15.6, -12.4), (-9.8, -6.9), (-6.9, -4.0), (-4.0, -1.15)]
 for r, (x1, x2) in enumerate(ROOMS):
     m = f"Meeting_{r + 1}"
@@ -810,13 +953,13 @@ box("Ceiling_RestBar", 1.7, -7.5, 3.2, 6.7, 8.4, 3.25, M["white"])
 #  마무리: 내보내기
 # =====================================================================
 bpy.context.view_layer.update()
-print(f"[7F v2] 오브젝트 {len(col.objects)}개 생성 완료")
+print(f"[{FLOOR_NO}F] 오브젝트 {len(col.objects)}개 생성 완료")
 if EXPORT_PATH:
     export_dir = os.path.dirname(EXPORT_PATH)
     if os.path.isdir(export_dir):
         bpy.ops.object.select_all(action="DESELECT")
         bpy.ops.export_scene.gltf(filepath=EXPORT_PATH, export_format="GLB", use_selection=False,
                                   export_apply=True, export_yup=True, export_cameras=False, export_lights=False)
-        print(f"[7F v2] 내보내기 완료 → {EXPORT_PATH}")
+        print(f"[{FLOOR_NO}F] 내보내기 완료 → {EXPORT_PATH}")
     else:
-        print(f"[7F v2] 내보내기 폴더가 없어 건너뜀: {export_dir}  (EXPORT_PATH 를 고쳐 주세요)")
+        print(f"[{FLOOR_NO}F] 내보내기 폴더가 없어 건너뜀: {export_dir}  (EXPORT_PATH 를 고쳐 주세요)")
