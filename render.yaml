@@ -1,0 +1,16 @@
+# Render 블루프린트: Render 대시보드 → New → Blueprint → 이 저장소 선택하면 자동 설정
+services:
+  - type: web
+    name: company-metaverse
+    runtime: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: TREASURE_MODE
+        value: each            # 선착순 1명만 받게 하려면 first
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false            # (선택) Firebase 서비스 계정 JSON 을 대시보드에서 직접 붙여넣기
