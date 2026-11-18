@@ -9,12 +9,14 @@ import { socket, connectAs, claimTreasure, changeFloor } from "./socket.js";
 /* ───────────── 설정 ───────────── */
 
 // 층별 맵 파일: client/public/floor_1f.glb, floor_6f.glb, floor_7f.glb
-const floorMapUrl = (floor) => `/floor_${floor.toLowerCase()}.glb`;
+// 주소 끝 ?v=… 는 배포 번호: 새로 배포하면 주소가 바뀌어 예전에 저장된(캐시) 맵 대신 새 맵을 받음
+const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "dev";
+const floorMapUrl = (floor) => `/floor_${floor.toLowerCase()}.glb?v=${BUILD_ID}`;
 const MAP_SCALE = 1; // 블렌더 1단위 = 1m 로 만들었다면 1 그대로
 const MAP_OFFSET = [0, 0, 0]; // 맵 전체를 옮겨야 할 때 [x, y, z]
 
 // 캐릭터 모델: client/public/characters.glb (없으면 기본 도형 캐릭터)
-const CHAR_URL = "/characters.glb";
+const CHAR_URL = `/characters.glb?v=${BUILD_ID}`;
 const PLAYER_MODEL = "Character_Player_Consultant";
 
 // 입장할 때 고르는 캐릭터 모양 (characters.glb 안의 이름)
