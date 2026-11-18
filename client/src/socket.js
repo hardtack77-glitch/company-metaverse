@@ -48,3 +48,7 @@ export const claimTreasure = (treasureId) =>
 
 export const changeFloor = (floor) =>
   request("changeFloor", floor, { ok: false, message: "서버 응답이 없어요. 다시 시도해 주세요." });
+
+// 다트 게임 점수 보내기 → { ok, isBest, best, rank, top: [{name, score}] }
+export const submitDart = (score) =>
+  request("dartScore", score, { ok: false, message: "서버 응답이 없어요. 랭킹은 다음에 다시 확인해 주세요." });

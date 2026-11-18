@@ -39,6 +39,11 @@ const ELEVATORS = {
   "8F": [2.6, 0, 10.55], // 8·9층은 7층과 같은 구조
   "9F": [2.6, 0, 10.55],
 };
+// 1층 북카페 BULLSEYE 다트 머신 앞 (다트 게임 점수는 이 근처에서만 받음)
+const DART_SPOT = { floor: "1F", position: [1.0, 0, -0.72] };
+const DART_MAX = 3 * 3 * 60; // 3라운드 × 3발 × 트리플20(60점)
+const dartBest = new Map(); // 기기키 → { name, score, at } (서버가 다시 켜지면 초기화)
+const dartTop = (n = 10) => [...dartBest.values()].sort((a, b) => b.score - a.score || a.at - b.at).slice(0, n);
 // 엘리베이터에서 내렸을 때 서는 위치 (층별, 마커에서 한 걸음 나온 자리)
 const ELEVATOR_EXITS = {
   "1F": [-5.7, 0, 6.4],
@@ -225,6 +230,26 @@ io.on("connection", (socket) => {
 
     reply({ ok: true, floor, position: p.position, players: playersOnFloor(floor) });
     console.log(`[엘리베이터] ${p.name} ${from} → ${floor}`);
+  });
+
+  // 3-2) 다트 게임 점수 → 최고 기록·랭킹 응답, 같은 층에 소식 알림
+  socket.on("dartScore", (score, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = players.get(socket.id);
+    if (!p) return reply({ ok: false, message: "먼저 입장해 주세요." });
+    const s = Math.round(Number(score));
+    if (!Number.isFinite(s) || s < 0 || s > DART_MAX) return reply({ ok: false, message: "점수가 올바르지 않아요." });
+    if (p.floor !== DART_SPOT.floor || dist2D(p.position, DART_SPOT.position) > 3)
+      return reply({ ok: false, message: "다트 머신 앞에서 해 주세요." });
+    const prev = dartBest.get(p.key);
+    const isBest = !prev || s > prev.score;
+    if (isBest) dartBest.set(p.key, { name: p.name, score: s, at: Date.now() });
+    else prev.name = p.name;
+    const all = dartTop(Infinity);
+    const mine = dartBest.get(p.key);
+    reply({ ok: true, isBest, best: mine.score, rank: all.indexOf(mine) + 1, top: all.slice(0, 10) });
+    socket.to(p.floor).emit("dartNews", { name: p.name, score: s });
+    console.log(`[다트] ${p.name} ${s}점${isBest ? " (최고 기록)" : ""}`);
   });
 
   // 4) 채팅 → 같은 층

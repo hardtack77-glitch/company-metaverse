@@ -4,7 +4,10 @@ import React, { Component, Suspense, createContext, useContext, useEffect, useMe
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
-import { socket, connectAs, claimTreasure, changeFloor } from "./socket.js";
+import { socket, connectAs, claimTreasure, changeFloor, submitDart } from "./socket.js";
+import DartGame from "./DartGame.jsx";
+import { STAFF_NPCS, COUNSEL_FLOORS, seatedWorkers } from "./staff.js";
+import SeatedCrowd from "./SeatedCrowd.jsx";
 
 /* ───────────── 설정 ───────────── */
 
@@ -67,11 +70,14 @@ const PASS_THROUGH = /door|ceiling|soffit|roof|천장/i; // 이 이름이 들어
 const MOVE_SPEED = 4; // m/s
 const SEND_INTERVAL = 0.07; // 서버 전송 간격(초)
 const BOUNDS = 14; // 임시 맵 이동 범위(±m). 블렌더 맵은 바닥 크기에 맞춰 자동 계산
+// 1층 북카페 BULLSEYE 다트 머신 앞 (이 근처에 가면 🎯 다트 게임 버튼)
+const DART_SPOT = { floor: "1F", position: [1.0, 0, -0.72], range: 1.8 };
 const INTERACT_DISTANCE = 1.8; // NPC·보물 버튼이 뜨는 거리 (서버 허용 2m보다 약간 작게)
 const ELEVATOR_DISTANCE = 2.0; // 엘리베이터 버튼이 뜨는 거리 (서버 허용 2.5m)
 
-// 사내 고정 NPC — 층별 2명 (층·위치·대사 자유롭게 수정. 대사 여러 줄 = 여러 페이지)
-const NPCS = [
+// 사내 고정 NPC (층·위치·대사 자유롭게 수정. 대사 여러 줄 = 여러 페이지)
+// 강사·실장·팀장·코치 명단은 staff.js 에 따로 있음
+const BASE_NPCS = [
   {
     id: "npc_1f_desk", floor: "1F", name: "안내데스크 매니저", color: "#e6007e", position: [3.95, 0, 5.6], rotationY: -Math.PI / 2,
     dialog: [
@@ -79,10 +85,6 @@ const NPCS = [
       "1층·6층·7층에 보물 9개가 숨겨져 있어요. 노란 상자를 찾아보세요.",
       "층 이동은 엘리베이터 홀의 파란 원 위에서 할 수 있어요.",
     ],
-  },
-  {
-    id: "npc_1f_trainer", floor: "1F", name: "강사", model: "Character_NPC_Instructor", color: "#10b981", position: [8.25, 0, -9.0],
-    dialog: ["일반강의장과 강사실은 이 복도 오른쪽에 있어요. 신입 상담사 교육은 여기서 시작돼요.", "공감상담의 첫걸음은 고객의 말을 끝까지 듣는 거예요!"],
   },
   {
     id: "npc_6f_leader", floor: "6F", name: "CS1그룹 팀장", color: "#6d28d9", position: [0.8, 0, 3.5],
@@ -96,11 +98,8 @@ const NPCS = [
     id: "npc_7f_bar", floor: "7F", name: "REST BAR 매니저", color: "#f97316", position: [5.5, 0, 3.0],
     dialog: ["REST BAR에서 잠깐 쉬어가세요~", "일언천금! 말 한마디가 천금이에요."],
   },
-  {
-    id: "npc_7f_room", floor: "7F", name: "상담실 리더", color: "#0ea5e9", position: [-7.0, 0, -5.3], // 중앙 기둥 통로
-    dialog: ["상담석 100석이 마주 보고 있는 상담실이에요. 통화 중이니 조용히 부탁해요.", "상담실 에티켓을 잘 지키면 좋은 일이 생길지도?"],
-  },
 ];
+const NPCS = [...BASE_NPCS, ...STAFF_NPCS];
 
 // glb 가 없을 때 쓰는 임시 맵의 층별 분위기
 const FLOOR_THEME = {
@@ -416,12 +415,63 @@ function Treasure({ t }) {
   );
 }
 
-// NPC: 상담사와 같은 모양, 가디건 색만 다르게
+// NPC: 서 있기 / 앉기(pose: "sit") / 길(path)을 따라 돌아다니기
+// 돌아다니는 NPC 의 지금 위치 (대화 버튼 거리 계산용)
+const NPC_LIVE = {};
+const NPC_WALK_SPEED = 0.8; // m/s
 const STILL = { current: 0 };
-function Npc({ npc }) {
+function Npc({ npc, myPosRef }) {
+  const g = useRef();
+  const speedRef = useRef(0);
+  const start = npc.path ? Math.floor((npc.pathOffset || 0) * npc.path.length) % npc.path.length : 0;
+  const st = useRef({ i: (start + 1) % (npc.path?.length || 1), wait: 1 + (npc.pathOffset || 0) * 4 });
+  const startPos = npc.path ? npc.path[start] : npc.position;
+  // 강사·안전조끼 같은 특수 모델은 원래 색 그대로, 나머지는 가디건 색으로 구분
+  const keepModelColor = npc.model === "Character_NPC_Instructor" || npc.model === "Character_NPC_YellowVest";
+
+  useFrame((_, dt) => {
+    const o = g.current;
+    if (!o || !npc.path) return;
+    const s = st.current;
+    const me = myPosRef?.current;
+    let moving = false;
+    if (me && Math.hypot(me.x - o.position.x, me.z - o.position.z) < 1.6) {
+      // 가까이 오면 멈춰서 바라봄
+      o.rotation.y = lerpAngle(o.rotation.y, Math.atan2(me.x - o.position.x, me.z - o.position.z), Math.min(1, dt * 6));
+    } else if (s.wait > 0) {
+      s.wait -= dt;
+    } else {
+      const [tx, , tz] = npc.path[s.i];
+      const dx = tx - o.position.x;
+      const dz = tz - o.position.z;
+      const d = Math.hypot(dx, dz);
+      if (d < 0.05) {
+        s.i = (s.i + 1) % npc.path.length;
+        s.wait = 1.2 + Math.random() * 2.5; // 잠깐 멈춰 둘러보기
+      } else {
+        const step = Math.min(d, NPC_WALK_SPEED * Math.min(dt, 0.1));
+        o.position.x += (dx / d) * step;
+        o.position.z += (dz / d) * step;
+        o.rotation.y = lerpAngle(o.rotation.y, Math.atan2(dx, dz), Math.min(1, dt * 8));
+        moving = true;
+      }
+    }
+    speedRef.current = THREE.MathUtils.lerp(speedRef.current, moving ? 0.55 : 0, Math.min(1, dt * 8));
+    NPC_LIVE[npc.id] = [o.position.x, 0, o.position.z];
+  });
+
   return (
-    <group position={npc.position} rotation-y={npc.rotationY ?? 0}>
-      <AvatarBody name={npc.name} speedRef={STILL} outfit={npc.model ? undefined : npc.color} model={npc.model} isNpc />
+    <group ref={g} position={startPos} rotation-y={npc.rotationY ?? 0}>
+      <group position-y={npc.pose === "sit" ? -0.12 : 0}>
+        <AvatarBody
+          name={npc.name}
+          speedRef={npc.path ? speedRef : STILL}
+          outfit={keepModelColor ? undefined : npc.color}
+          model={npc.model}
+          pose={npc.pose}
+          isNpc
+        />
+      </group>
     </group>
   );
 }
@@ -438,7 +488,8 @@ function NearbyWatcher({ myPosRef, targets, onNearby }) {
     let best = null;
     let bestScore = Infinity;
     for (const t of targets) {
-      const d = Math.hypot(p.x - t.position[0], p.z - t.position[2]);
+      const pos = (t.live && NPC_LIVE[t.id]) || t.position;
+      const d = Math.hypot(p.x - pos[0], p.z - pos[2]);
       if (d <= t.range && d / t.range < bestScore) {
         best = { type: t.type, id: t.id };
         bestScore = d / t.range;
@@ -467,7 +518,7 @@ const LabelScaleContext = createContext(10);
 const CharsContext = createContext(false);
 
 // 블렌더 characters.glb 캐릭터: Hip_L/R, Shoulder_L/R 관절을 흔들어 걷기 동작
-function GlbCharacter({ model = PLAYER_MODEL, outfit, speedRef }) {
+function GlbCharacter({ model = PLAYER_MODEL, outfit, speedRef, pose }) {
   const { scene } = useGLTF(CHAR_URL);
   const { object, limbs } = useMemo(() => {
     const src = scene.getObjectByName(model) || scene.getObjectByName(PLAYER_MODEL);
@@ -499,6 +550,17 @@ function GlbCharacter({ model = PLAYER_MODEL, outfit, speedRef }) {
 
   const phase = useRef(0);
   useFrame((_, dt) => {
+    if (pose === "sit") {
+      // 앉은 자세: 다리는 앞으로, 팔은 키보드 쪽으로 (살짝 타자 치는 움직임)
+      phase.current += dt;
+      const tap = Math.max(0, Math.sin(phase.current * 9)) * 0.06;
+      const put = (l, v) => l && (l.node.rotation.x = l.base + v);
+      put(limbs.hipL, -1.5);
+      put(limbs.hipR, -1.5);
+      put(limbs.shL, -0.95 - tap);
+      put(limbs.shR, -1.0 + tap);
+      return;
+    }
     const sp = speedRef.current;
     phase.current += dt * 9 * Math.max(sp, 0.001);
     const swing = Math.sin(phase.current) * 0.6 * sp;
@@ -524,7 +586,7 @@ class CharBoundary extends Component {
   }
 }
 
-function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, model, hideLabel }) {
+function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, model, hideLabel, pose }) {
   const charsOk = useContext(CharsContext);
   const labelScale = useContext(LabelScaleContext);
   const procedural = <ProceduralBody speedRef={speedRef} outfit={outfit || CARDIGAN} />;
@@ -533,7 +595,7 @@ function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, mod
       {charsOk ? (
         <CharBoundary fallback={procedural}>
           <Suspense fallback={procedural}>
-            <GlbCharacter model={model} outfit={outfit} speedRef={speedRef} />
+            <GlbCharacter model={model} outfit={outfit} speedRef={speedRef} pose={pose} />
           </Suspense>
         </CharBoundary>
       ) : (
@@ -931,6 +993,7 @@ export default function App() {
   const [nearbyTarget, setNearbyTarget] = useState(null); // { type: "npc" | "treasure" | "elevator", id }
   const [dialog, setDialog] = useState(null); // { title, lines: [], page }
   const [elevatorOpen, setElevatorOpen] = useState(false);
+  const [dartOpen, setDartOpen] = useState(false); // 다트 게임 화면
   const [busy, setBusy] = useState(false); // 서버 응답 대기 중
   const [spawnSeq, setSpawnSeq] = useState(0); // 층 이동 시 내 아바타를 새 위치에 다시 배치
   const [toast, setToast] = useState(null);
@@ -1017,7 +1080,10 @@ export default function App() {
     socket.on("treasureClaimed", onTreasureClaimed);
     socket.on("joinRejected", onJoinRejected);
     socket.on("onlineCount", setOnlineCount);
+    const onDartNews = ({ name, score }) => showToast(`🎯 ${name}님이 다트 ${score}점을 기록했어요!`);
+    socket.on("dartNews", onDartNews);
     return () => {
+      socket.off("dartNews", onDartNews);
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       socket.off("init", onInit);
@@ -1033,14 +1099,16 @@ export default function App() {
 
   /* ── 지금 층에 있는 것들 ── */
   const floorNpcs = NPCS.filter((n) => n.floor === floor);
+  const crowd = useMemo(() => (COUNSEL_FLOORS.includes(floor) ? seatedWorkers(floor) : []), [floor]);
   const floorTreasures = treasures.filter((t) => t.floor === floor && !t.foundByMe && !t.claimed);
   const elevatorPos = world.elevators[floor];
 
   const targets = useMemo(
     () => [
-      ...floorNpcs.map((n) => ({ type: "npc", id: n.id, position: n.position, range: INTERACT_DISTANCE })),
+      ...floorNpcs.map((n) => ({ type: "npc", id: n.id, position: n.position || n.path[0], live: !!n.path, range: INTERACT_DISTANCE })),
       ...floorTreasures.map((t) => ({ type: "treasure", id: t.id, position: t.position, range: INTERACT_DISTANCE })),
       ...(elevatorPos ? [{ type: "elevator", id: floor, position: elevatorPos, range: ELEVATOR_DISTANCE }] : []),
+      ...(floor === DART_SPOT.floor ? [{ type: "dart", id: "dart", position: DART_SPOT.position, range: DART_SPOT.range }] : []),
     ],
     [floor, treasures, world] // eslint-disable-line
   );
@@ -1052,8 +1120,10 @@ export default function App() {
       ? { type: "treasure", data: floorTreasures.find((t) => t.id === nearbyTarget.id) }
       : nearbyTarget?.type === "elevator" && nearbyTarget.id === floor
       ? { type: "elevator", data: { floor } }
+      : nearbyTarget?.type === "dart" && floor === DART_SPOT.floor
+      ? { type: "dart", data: {} }
       : null;
-  const modalOpen = !!dialog || elevatorOpen;
+  const modalOpen = !!dialog || elevatorOpen || dartOpen;
   const canInteract = nearby?.data && !modalOpen;
 
   /* ── 상호작용 ── */
@@ -1066,6 +1136,7 @@ export default function App() {
     if (nearby.type === "npc") openDialog(nearby.data.name, nearby.data.dialog);
     else if (nearby.type === "treasure") pickUp(nearby.data);
     else if (nearby.type === "elevator") setElevatorOpen(true);
+    else if (nearby.type === "dart") setDartOpen(true);
   };
 
   const pickUp = async (target) => {
@@ -1193,6 +1264,7 @@ export default function App() {
     npc: ["#3b82f6", "💬\n대화하기"],
     treasure: ["#eab308", "🎁\n보물 열기"],
     elevator: ["#2563eb", "🛗\n층간 이동"],
+    dart: ["#ef4444", "🎯\n다트 게임"],
   };
 
   /* ── 3D 화면 ── */
@@ -1222,8 +1294,9 @@ export default function App() {
         />
         {elevatorPos && <Elevator position={elevatorPos} floor={floor} showDoors={maps[floor] === false} />}
         {floorNpcs.map((n) => (
-          <Npc key={n.id} npc={n} />
+          <Npc key={n.id} npc={n} myPosRef={myPosRef} />
         ))}
+        {COUNSEL_FLOORS.includes(floor) && maps[floor] && <SeatedCrowd workers={crowd} />}
         {floorTreasures.map((t) => (
           <Treasure key={t.id} t={t} />
         ))}
@@ -1277,6 +1350,8 @@ export default function App() {
           {busy ? "확인 중…" : buttonStyle[nearby.type][1]}
         </button>
       )}
+
+      {dartOpen && <DartGame playerName={me.name} onSubmit={submitDart} onClose={() => setDartOpen(false)} />}
 
       {elevatorOpen && (
         <div style={styles.backdrop} onClick={() => setElevatorOpen(false)}>
