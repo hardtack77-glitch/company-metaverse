@@ -4,10 +4,12 @@ import React, { Component, Suspense, createContext, useContext, useEffect, useMe
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
-import { socket, connectAs, claimTreasure, changeFloor, submitDart, sendMove, rememberPose } from "./socket.js";
+import { socket, connectAs, claimTreasure, changeFloor, submitDart, sendMove, rememberPose, signup, login, checkSession, logout, getToken } from "./socket.js";
 import { openExternal, shouldAutoResume, clearResume } from "./openLink.js";
 import DartGame from "./DartGame.jsx";
 import NpcMessage from "./NpcMessage.jsx";
+import ChatLog from "./ChatLog.jsx";
+import Inbox from "./Inbox.jsx";
 import { STAFF_NPCS, COUNSEL_FLOORS, seatedWorkers, RECRUITERS, RECRUIT_LINKS, RECRUIT_GREETING, RECRUIT_HELLOS } from "./staff.js";
 import SeatedCrowd from "./SeatedCrowd.jsx";
 
@@ -825,7 +827,7 @@ function MyAvatar({ me, inputRef, bubble, myPosRef, frozen, bounds, colliders, c
   return (
     <group ref={ref} position={me.position}>
       {/* 1인칭에서는 내 몸이 카메라를 가리지 않도록 숨김 */}
-      {!CAMERA_MODES[camMode]?.firstPerson && <AvatarBody name={me.name} bubble={bubble} isMe speedRef={speedRef} model={lookModel(me.look)} outfit={me.look?.outfit} />}
+      {!CAMERA_MODES[camMode]?.firstPerson && <AvatarBody name={me.guest ? `${me.name} (방문자)` : me.name} bubble={bubble} isMe speedRef={speedRef} model={lookModel(me.look)} outfit={me.look?.outfit} />}
     </group>
   );
 }
@@ -849,7 +851,7 @@ function OtherAvatar({ player, bubble }) {
     <group ref={ref} position={player.position}>
       <AvatarBody
         tagColor={player.color}
-        name={player.name}
+        name={player.guest ? `${player.name} (방문자)` : player.name}
         bubble={bubble}
         speedRef={speedRef}
         model={lookModel(player.look)}
@@ -1002,11 +1004,19 @@ export default function App() {
   const [dartOpen, setDartOpen] = useState(false); // 다트 게임 화면
   const [recruiter, setRecruiter] = useState(null); // 채용담당자 메뉴 { text }
   const [msgTarget, setMsgTarget] = useState(null); // 메시지를 남길 NPC { id, name }
+  const [chatLines, setChatLines] = useState([]); // 이 층 대화 (최근 30줄)
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [inboxUnread, setInboxUnread] = useState(0);
   const helloIdx = useRef(Math.floor(Math.random() * RECRUIT_HELLOS.length));
   const [busy, setBusy] = useState(false); // 서버 응답 대기 중
   const [spawnSeq, setSpawnSeq] = useState(0); // 층 이동 시 내 아바타를 새 위치에 다시 배치
   const [toast, setToast] = useState(null);
   const [lobbyMsg, setLobbyMsg] = useState("");
+  // 로비 입장 방식: guest(방문자) | login(로그인) | signup(회원가입, 내부 임직원)
+  const [mode, setMode] = useState(() => (getToken() ? "login" : "guest"));
+  const [account, setAccount] = useState(null); // 로그인한 임직원 { name, empNo, look }
+  const [form, setForm] = useState({ name: "", empNo: "", password: "", password2: "" });
+  const [authBusy, setAuthBusy] = useState(false);
   const myPosRef = useRef(new THREE.Vector3());
   const toastTimer = useRef();
   const inputRef = useRef({ x: 0, y: 0 });
@@ -1049,8 +1059,10 @@ export default function App() {
   useEffect(() => {
     const onConnect = () => setConnected(true);
     const onDisconnect = () => setConnected(false);
-    const onInit = ({ me, players, treasures, world }) => {
+    const onInit = ({ me, players, treasures, world, chatLog, inboxUnread }) => {
       setMe(me);
+      setChatLines(chatLog || []);
+      setInboxUnread(inboxUnread || 0);
       setWorld(world);
       setTreasures(treasures || []);
       setOthers(Object.fromEntries(players.filter((p) => p.id !== me.id).map((p) => [p.id, p])));
@@ -1066,7 +1078,8 @@ export default function App() {
         delete n[id];
         return n;
       });
-    const onChat = ({ id, text }) => {
+    const onChat = ({ id, name, text, at }) => {
+      setChatLines((l) => [...l, { id, name, text, at }].slice(-30));
       setBubbles((b) => ({ ...b, [id]: text }));
       setTimeout(() => setBubbles((b) => (b[id] === text ? { ...b, [id]: null } : b)), 4000);
     };
@@ -1091,7 +1104,13 @@ export default function App() {
     socket.on("onlineCount", setOnlineCount);
     const onDartNews = ({ name, score }) => showToast(`🎯 ${name}님이 다트 ${score}점을 기록했어요!`);
     socket.on("dartNews", onDartNews);
+    const onInboxNew = ({ npcName, unread }) => {
+      setInboxUnread(unread);
+      showToast(`📬 ${npcName}의 답장이 도착했어요! (내 메시지함)`);
+    };
+    socket.on("inboxNew", onInboxNew);
     return () => {
+      socket.off("inboxNew", onInboxNew);
       socket.off("dartNews", onDartNews);
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
@@ -1132,7 +1151,7 @@ export default function App() {
       : nearbyTarget?.type === "dart" && floor === DART_SPOT.floor
       ? { type: "dart", data: {} }
       : null;
-  const modalOpen = !!dialog || elevatorOpen || dartOpen || !!recruiter || !!msgTarget;
+  const modalOpen = !!dialog || elevatorOpen || dartOpen || !!recruiter || !!msgTarget || inboxOpen;
   const canInteract = nearby?.data && !modalOpen;
 
   /* ── 상호작용 ── */
@@ -1183,6 +1202,7 @@ export default function App() {
       rememberPose({ floor: res.floor, position: res.position });
       setOthers(Object.fromEntries(res.players.filter((p) => p.id !== socket.id).map((p) => [p.id, p])));
       setBubbles({});
+      setChatLines(res.chatLog || []);
       setNearbyTarget(null);
       setSpawnSeq((n) => n + 1);
       showToast(`🛗 ${res.floor}에 도착했어요`);
@@ -1218,17 +1238,60 @@ export default function App() {
     } catch {
       /* 무시 */
     }
-    connectAs(name, saved || look, { resume: true });
+    connectAs(name, saved || look, { resume: true, guest: localStorage.getItem("cm_mode") === "guest" });
   }, []); // eslint-disable-line
+
+  // 저장된 로그인이 있으면 자동으로 확인
+  useEffect(() => {
+    if (!getToken()) return;
+    checkSession().then((res) => {
+      if (res.ok) {
+        setAccount(res.user);
+        if (res.user.look) setLook(res.user.look);
+      } else if (!res.offline) setMode("guest");
+    });
+  }, []);
+
+  const setF = (k) => (e) => setForm((f) => ({ ...f, [k]: k === "empNo" ? e.target.value.replace(/\D/g, "").slice(0, 6) : e.target.value }));
+
+  const onAuth = async (e) => {
+    e.preventDefault();
+    if (authBusy) return;
+    const empNo = form.empNo.trim();
+    if (mode === "signup") {
+      if (!form.name.trim()) return setLobbyMsg("이름을 입력해 주세요.");
+      if (!/^\d{6}$/.test(empNo)) return setLobbyMsg("사번은 숫자 6자리예요.");
+      if (form.password.length < 4) return setLobbyMsg("비밀번호는 4자 이상으로 정해 주세요.");
+      if (form.password !== form.password2) return setLobbyMsg("비밀번호 확인이 일치하지 않아요.");
+    } else if (!/^\d{6}$/.test(empNo) || !form.password) return setLobbyMsg("사번 6자리와 비밀번호를 입력해 주세요.");
+    setAuthBusy(true);
+    setLobbyMsg("");
+    const res = mode === "signup" ? await signup({ name: form.name.trim(), empNo, password: form.password }) : await login({ empNo, password: form.password });
+    setAuthBusy(false);
+    if (!res.ok) return setLobbyMsg(res.message || "다시 시도해 주세요.");
+    setAccount(res.user);
+    if (res.user.look) setLook(res.user.look);
+    setForm({ name: "", empNo: "", password: "", password2: "" });
+    setMode("login");
+  };
+
+  const doLogout = () => {
+    logout();
+    setAccount(null);
+    setMode("login");
+    setLobbyMsg("");
+  };
 
   const enter = (e) => {
     e.preventDefault();
-    const name = nameInput.trim();
-    if (!name) return;
+    if (mode !== "guest" && !account) return;
+    const name = mode === "guest" ? nameInput.trim() : account.name;
+    if (!name) return setLobbyMsg("이름을 입력해 주세요.");
     localStorage.setItem("cm_name", name);
     localStorage.setItem("cm_look", JSON.stringify(look));
+    localStorage.setItem("cm_mode", mode === "guest" ? "guest" : "member");
     setLobbyMsg("");
-    connectAs(name, look);
+    connectAs(name, look, { guest: mode === "guest" });
   };
 
   const sendChat = (e) => {
@@ -1241,49 +1304,126 @@ export default function App() {
 
   /* ── 로비 ── */
   if (!me) {
+    const picker = (
+      <>
+        <LookPreview look={look} charsOk={charsOk} />
+        <div style={styles.typeRow}>
+          {CHARACTER_TYPES.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              style={{ ...styles.typeBtn, ...(look.type === t.id ? styles.typeBtnOn : null) }}
+              onClick={() => setLook((l) => ({ ...l, type: t.id }))}
+            >
+              <b>{t.label}</b>
+              <span style={{ fontSize: 11, opacity: 0.8 }}>{t.sub}</span>
+            </button>
+          ))}
+        </div>
+        <div style={styles.swatchGrid}>
+          {OUTFIT_COLORS.map((c) => (
+            <button
+              key={c.hex}
+              type="button"
+              title={c.label}
+              aria-label={c.label}
+              style={{ ...styles.swatch, background: c.hex, ...(look.outfit === c.hex ? styles.swatchOn : null) }}
+              onClick={() => setLook((l) => ({ ...l, outfit: c.hex }))}
+            />
+          ))}
+        </div>
+        <p style={{ margin: "0 0 12px", fontSize: 12, color: "#6b7280" }}>
+          가디건 색: {OUTFIT_COLORS.find((c) => c.hex === look.outfit)?.label}
+        </p>
+      </>
+    );
+    const tabs = [
+      ["login", "로그인"],
+      ["signup", "회원가입"],
+      ["guest", "게스트 입장"],
+    ];
+    const showAuthForm = (mode === "login" && !account) || mode === "signup";
     return (
       <div style={styles.lobby}>
-        <form onSubmit={enter} style={styles.lobbyCard}>
+        <form onSubmit={showAuthForm ? onAuth : enter} style={styles.lobbyCard}>
           <h1 style={{ margin: "0 0 4px", fontSize: 22 }}>🏢 회사 메타버스</h1>
-          <p style={{ margin: "0 0 10px", color: "#6b7280", fontSize: 13 }}>캐릭터와 옷 색을 고르고 입장하세요</p>
-          <LookPreview look={look} charsOk={charsOk} />
-          <div style={styles.typeRow}>
-            {CHARACTER_TYPES.map((t) => (
+          <div style={styles.tabs}>
+            {tabs.map(([id, label]) => (
               <button
-                key={t.id}
+                key={id}
                 type="button"
-                style={{ ...styles.typeBtn, ...(look.type === t.id ? styles.typeBtnOn : null) }}
-                onClick={() => setLook((l) => ({ ...l, type: t.id }))}
+                style={{ ...styles.tab, ...(mode === id ? styles.tabOn : null) }}
+                onClick={() => {
+                  setMode(id);
+                  setLobbyMsg("");
+                }}
               >
-                <b>{t.label}</b>
-                <span style={{ fontSize: 11, opacity: 0.8 }}>{t.sub}</span>
+                {label}
               </button>
             ))}
           </div>
-          <div style={styles.swatchGrid}>
-            {OUTFIT_COLORS.map((c) => (
-              <button
-                key={c.hex}
-                type="button"
-                title={c.label}
-                aria-label={c.label}
-                style={{ ...styles.swatch, background: c.hex, ...(look.outfit === c.hex ? styles.swatchOn : null) }}
-                onClick={() => setLook((l) => ({ ...l, outfit: c.hex }))}
-              />
-            ))}
-          </div>
-          <p style={{ margin: "0 0 12px", fontSize: 12, color: "#6b7280" }}>
-            가디건 색: {OUTFIT_COLORS.find((c) => c.hex === look.outfit)?.label}
+          <p style={styles.tabHelp}>
+            {mode === "guest"
+              ? "방문자는 이름만 입력하고 바로 들어가요. (기록은 이 기기에만 남아요)"
+              : mode === "signup"
+              ? "내부 임직원 전용 · 사번으로 가입하면 보물 기록과 캐릭터가 저장돼요."
+              : account
+              ? ""
+              : "가입한 사번과 비밀번호로 로그인하세요."}
           </p>
-          <input
-            style={styles.input}
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            placeholder="예: 김승현"
-            maxLength={12}
-            autoFocus
-          />
-          <button style={styles.button} type="submit">입장하기</button>
+
+          {mode === "signup" && (
+            <>
+              <input style={styles.input} value={form.name} onChange={setF("name")} placeholder="이름 (예: 김승현)" maxLength={12} autoComplete="name" />
+              <input style={styles.input} value={form.empNo} onChange={setF("empNo")} placeholder="사번 (숫자 6자리)" inputMode="numeric" autoComplete="username" />
+              <input style={styles.input} type="password" value={form.password} onChange={setF("password")} placeholder="비밀번호 (4자 이상)" autoComplete="new-password" />
+              <input style={styles.input} type="password" value={form.password2} onChange={setF("password2")} placeholder="비밀번호 확인" autoComplete="new-password" />
+              <button style={styles.button} type="submit" disabled={authBusy}>
+                {authBusy ? "가입하는 중…" : "회원가입"}
+              </button>
+            </>
+          )}
+
+          {mode === "login" && !account && (
+            <>
+              <input style={styles.input} value={form.empNo} onChange={setF("empNo")} placeholder="사번 (숫자 6자리)" inputMode="numeric" autoComplete="username" />
+              <input style={styles.input} type="password" value={form.password} onChange={setF("password")} placeholder="비밀번호" autoComplete="current-password" />
+              <button style={styles.button} type="submit" disabled={authBusy}>
+                {authBusy ? "확인하는 중…" : "로그인"}
+              </button>
+              <p style={{ fontSize: 12, color: "#6b7280", margin: "10px 0 0" }}>
+                처음이신가요?{" "}
+                <a href="#" onClick={(e) => (e.preventDefault(), setMode("signup"), setLobbyMsg(""))}>
+                  회원가입
+                </a>
+              </p>
+            </>
+          )}
+
+          {mode === "login" && account && (
+            <>
+              <div style={styles.welcome}>
+                👋 <b>{account.name}</b>님 환영합니다 <span style={{ color: "#6b7280", fontSize: 12 }}>(사번 {account.empNo})</span>
+              </div>
+              {picker}
+              <button style={styles.button} type="submit">
+                입장하기
+              </button>
+              <button type="button" style={styles.linkBtn} onClick={doLogout}>
+                로그아웃
+              </button>
+            </>
+          )}
+
+          {mode === "guest" && (
+            <>
+              {picker}
+              <input style={styles.input} value={nameInput} onChange={(e) => setNameInput(e.target.value)} placeholder="이름 (예: 홍길동)" maxLength={12} />
+              <button style={styles.button} type="submit">
+                게스트로 입장하기
+              </button>
+            </>
+          )}
           {lobbyMsg && <p style={{ color: "#dc2626", fontSize: 13, margin: "12px 0 0" }}>{lobbyMsg}</p>}
         </form>
       </div>
@@ -1381,6 +1521,14 @@ export default function App() {
           {busy ? "확인 중…" : buttonStyle[nearby.type][1]}
         </button>
       )}
+
+      <button style={styles.inboxBtn} onClick={() => setInboxOpen(true)}>
+        📬 메시지함
+        {inboxUnread > 0 && <span style={styles.badge}>{inboxUnread}</span>}
+      </button>
+      {inboxOpen && <Inbox onClose={() => setInboxOpen(false)} onRead={() => setInboxUnread(0)} />}
+
+      {!dialog && !recruiter && <ChatLog lines={chatLines} myId={me.id} floor={floor} />}
 
       {msgTarget && <NpcMessage npc={msgTarget} onClose={() => setMsgTarget(null)} />}
       {dartOpen && <DartGame playerName={me.name} onSubmit={submitDart} onClose={() => setDartOpen(false)} />}
@@ -1510,6 +1658,12 @@ const styles = {
   swatchOn: { border: "3px solid #111827", transform: "scale(1.1)" },
   input: { width: "100%", boxSizing: "border-box", fontSize: 16, padding: "12px 14px", borderRadius: 10, border: "1px solid #d1d5db", marginBottom: 12, outline: "none" },
   button: { width: "100%", fontSize: 16, fontWeight: 700, padding: "12px 0", border: 0, borderRadius: 10, background: "#e6007e", color: "#fff" },
+  tabs: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4, background: "#f3f4f6", borderRadius: 12, padding: 4, margin: "10px 0 8px" },
+  tab: { border: 0, borderRadius: 9, padding: "9px 0", fontSize: 14, fontWeight: 700, background: "transparent", color: "#6b7280" },
+  tabOn: { background: "#fff", color: "#e6007e", boxShadow: "0 1px 3px rgba(0,0,0,.15)" },
+  tabHelp: { margin: "0 0 12px", color: "#6b7280", fontSize: 12, minHeight: 16 },
+  welcome: { background: "#fdf2f8", borderRadius: 10, padding: "10px 12px", margin: "0 0 10px", fontSize: 14 },
+  linkBtn: { marginTop: 10, background: "transparent", border: 0, color: "#6b7280", fontSize: 13, textDecoration: "underline" },
   topBar: { position: "absolute", top: "max(12px, env(safe-area-inset-top))", left: 12, padding: "6px 12px", borderRadius: 999, background: "rgba(0,0,0,.55)", color: "#fff", fontSize: 13, display: "flex", alignItems: "center", gap: 6, zIndex: 5 },
   dot: { width: 8, height: 8, borderRadius: "50%", display: "inline-block" },
   joyBase: { position: "absolute", left: 24, bottom: "calc(84px + env(safe-area-inset-bottom))", width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,.25)", border: "2px solid rgba(255,255,255,.6)", display: "grid", placeItems: "center", touchAction: "none" },
@@ -1520,7 +1674,7 @@ const styles = {
   labelWrap: { display: "flex", flexDirection: "column", alignItems: "center", gap: 4, pointerEvents: "none", whiteSpace: "nowrap" },
   name: { color: "#fff", fontSize: 12, padding: "2px 8px", borderRadius: 999 },
   bubble: { background: "#fff", color: "#111", fontSize: 13, padding: "6px 10px", borderRadius: 12, maxWidth: 180, whiteSpace: "normal", boxShadow: "0 2px 6px rgba(0,0,0,.25)" },
-  actionBtn: { position: "absolute", right: 24, bottom: "calc(110px + env(safe-area-inset-bottom))", width: 100, height: 100, borderRadius: "50%", border: "3px solid #fff", color: "#fff", fontSize: 15, fontWeight: 800, lineHeight: 1.35, whiteSpace: "pre-line", boxShadow: "0 4px 14px rgba(0,0,0,.35)", touchAction: "manipulation" },
+  actionBtn: { position: "absolute", right: 24, bottom: "calc(290px + env(safe-area-inset-bottom))", width: 100, height: 100, borderRadius: "50%", border: "3px solid #fff", color: "#fff", fontSize: 15, fontWeight: 800, lineHeight: 1.35, whiteSpace: "pre-line", boxShadow: "0 4px 14px rgba(0,0,0,.35)", touchAction: "manipulation" },
   toast: { position: "absolute", top: "calc(56px + env(safe-area-inset-top))", left: "50%", transform: "translateX(-50%)", maxWidth: "88%", background: "rgba(17,24,39,.9)", color: "#fff", padding: "10px 16px", borderRadius: 12, fontSize: 14, textAlign: "center", zIndex: 20 },
   npcMark: { fontSize: 18, lineHeight: 1 },
   dialog: { position: "absolute", left: 12, right: 12, bottom: "calc(70px + env(safe-area-inset-bottom))", maxWidth: 520, margin: "0 auto", background: "rgba(17,24,39,.95)", color: "#fff", padding: "16px 18px 12px", borderRadius: 14, border: "2px solid #fbbf24", zIndex: 30 },
@@ -1541,6 +1695,8 @@ const styles = {
   closeBtn: { marginTop: 4, fontSize: 14, padding: "8px 0", borderRadius: 10, border: 0, background: "transparent", color: "#cbd5e1" },
   moving: { position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(15,23,42,.55)", color: "#fff", fontSize: 22, fontWeight: 800, zIndex: 50 },
   loading: { background: "rgba(0,0,0,.6)", color: "#fff", padding: "6px 12px", borderRadius: 8, fontSize: 13, whiteSpace: "nowrap" },
+  inboxBtn: { position: "absolute", top: "calc(92px + env(safe-area-inset-top))", right: 12, padding: "6px 12px", borderRadius: 999, border: 0, background: "rgba(255,255,255,.88)", color: "#111827", fontSize: 13, fontWeight: 700, boxShadow: "0 2px 6px rgba(0,0,0,.2)", zIndex: 5 },
+  badge: { position: "absolute", top: -6, right: -6, minWidth: 18, height: 18, lineHeight: "18px", borderRadius: 999, background: "#ef4444", color: "#fff", fontSize: 11, textAlign: "center", padding: "0 4px" },
   camBtn: { position: "absolute", top: "calc(52px + env(safe-area-inset-top))", right: 12, padding: "6px 12px", borderRadius: 999, border: 0, background: "rgba(255,255,255,.88)", color: "#111827", fontSize: 13, fontWeight: 700, boxShadow: "0 2px 6px rgba(0,0,0,.2)", zIndex: 5 },
   treasureMark: { color: "#fde047", fontSize: 12, fontWeight: 800, textShadow: "0 0 3px #000, 0 0 3px #000", whiteSpace: "nowrap", pointerEvents: "none" },
   sign: { background: "#fff", padding: "2px 8px", borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" },

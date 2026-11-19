@@ -39,7 +39,7 @@ export default function NpcMessage({ npc, onClose, onSent }) {
     if (res.ok) {
       setText("");
       setList(res.messages);
-      setNotice(isPublic ? "메시지를 남겼어요! 💌" : "비공개로 전달했어요. 🔒");
+      setNotice(isPublic ? "메시지를 남겼어요! 💌 답장은 📬 메시지함에서 확인해요." : "비공개로 전달했어요. 🔒 답장은 📬 메시지함에서 확인해요.");
       document.activeElement?.blur();
       onSent?.();
     } else {

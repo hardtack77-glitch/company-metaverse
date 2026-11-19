@@ -53,22 +53,44 @@ export function sendMove(position, rotationY) {
 }
 socket.on("init", ({ me } = {}) => me && rememberPose({ floor: me.floor, position: me.position }));
 
+// 로그인 토큰 (회원 = 내부 임직원). 없으면 방문자(게스트)
+const TOKEN_KEY = "cm_token";
+let authToken = (() => {
+  try {
+    return localStorage.getItem(TOKEN_KEY) || "";
+  } catch {
+    return "";
+  }
+})();
+export const getToken = () => authToken;
+export function setToken(t) {
+  authToken = t || "";
+  try {
+    if (authToken) localStorage.setItem(TOKEN_KEY, authToken);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    /* 무시 */
+  }
+}
+
 let lastName = "";
 let lastLook = null; // { type, outfit } 캐릭터 모양·가디건 색
 let resumeNext = false; // 다음 입장 때 마지막 자리에서 이어서 하기
-export function connectAs(name, look, { resume = false } = {}) {
+let joinAsGuest = false; // 방문자로 입장하면 토큰을 보내지 않음
+export function connectAs(name, look, { resume = false, guest = false } = {}) {
   lastName = name;
   lastLook = look || null;
   resumeNext = resume;
+  joinAsGuest = guest;
   if (!socket.connected) socket.connect();
-  else socket.emit("join", { name, key: getPlayerKey(), look: lastLook, resume: resume ? resumePayload() : undefined });
+  else socket.emit("join", { name, key: getPlayerKey(), look: lastLook, resume: resume ? resumePayload() : undefined, token: guest ? undefined : authToken || undefined });
 }
 // 연결(재연결 포함)될 때마다 자동 입장 — 재연결이면 마지막 자리에서 이어서
 let joinedOnce = false;
 socket.on("connect", () => {
   if (!lastName) return;
   const resume = joinedOnce || resumeNext ? resumePayload() : undefined;
-  socket.emit("join", { name: lastName, key: getPlayerKey(), look: lastLook, resume });
+  socket.emit("join", { name: lastName, key: getPlayerKey(), look: lastLook, resume, token: joinAsGuest ? undefined : authToken || undefined });
   joinedOnce = true;
   resumeNext = false;
 });
@@ -93,4 +115,40 @@ export const submitDart = (score) =>
 // NPC 에게 메시지 남기기 / 공개 메시지 보기 → { ok, messages: [{ from, text, at }] }
 export const sendNpcMessage = (payload) =>
   request("npcMessage", payload, { ok: false, message: "서버 응답이 없어요. 잠시 후 다시 시도해 주세요." });
+export const getMyMessages = () => request("myMessages", null, { ok: false, items: [] });
 export const getNpcMessages = (npcId) => request("npcMessages", npcId, { ok: false, messages: [] });
+
+// 회원가입·로그인은 입장 전에 서버와 연결해서 처리
+function ensureConnected() {
+  if (socket.connected) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const done = (ok) => {
+      clearTimeout(t);
+      socket.off("connect", onOk);
+      resolve(ok);
+    };
+    const onOk = () => done(true);
+    const t = setTimeout(() => done(false), 8000);
+    socket.once("connect", onOk);
+    socket.connect();
+  });
+}
+const NO_SERVER = { ok: false, message: "서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요. (서버가 깨어나는 데 30초쯤 걸릴 수 있어요)" };
+async function authRequest(event, payload) {
+  if (!(await ensureConnected())) return NO_SERVER;
+  const res = await request(event, payload, NO_SERVER);
+  if (res.ok && res.token) setToken(res.token);
+  return res;
+}
+// 회원가입 { name, empNo, password } / 로그인 { empNo, password } → { ok, user: { name, empNo, look }, message }
+export const signup = (payload) => authRequest("signup", payload);
+export const login = (payload) => authRequest("login", payload);
+// 저장된 토큰이 아직 유효한지 → { ok, user }
+export async function checkSession() {
+  if (!authToken) return { ok: false };
+  if (!(await ensureConnected())) return { ok: false, offline: true };
+  const res = await request("session", authToken, { ok: false, offline: true });
+  if (!res.ok && !res.offline) setToken("");
+  return res;
+}
+export const logout = () => setToken("");
