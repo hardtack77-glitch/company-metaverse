@@ -10,6 +10,8 @@ import DartGame from "./DartGame.jsx";
 import NpcMessage from "./NpcMessage.jsx";
 import ChatLog from "./ChatLog.jsx";
 import Inbox from "./Inbox.jsx";
+import PhotoSpot from "./PhotoSpot.jsx";
+import { zoneAt } from "./photoZones.js";
 import { STAFF_NPCS, COUNSEL_FLOORS, seatedWorkers, RECRUITERS, RECRUIT_LINKS, RECRUIT_GREETING, RECRUIT_HELLOS } from "./staff.js";
 import SeatedCrowd from "./SeatedCrowd.jsx";
 
@@ -1007,6 +1009,8 @@ export default function App() {
   const [chatLines, setChatLines] = useState([]); // 이 층 대화 (최근 30줄)
   const [inboxOpen, setInboxOpen] = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
+  const [photoZone, setPhotoZone] = useState(null); // 지금 서 있는 사진 구역
+  const [photoOpen, setPhotoOpen] = useState(false);
   const helloIdx = useRef(Math.floor(Math.random() * RECRUIT_HELLOS.length));
   const [busy, setBusy] = useState(false); // 서버 응답 대기 중
   const [spawnSeq, setSpawnSeq] = useState(0); // 층 이동 시 내 아바타를 새 위치에 다시 배치
@@ -1151,7 +1155,7 @@ export default function App() {
       : nearbyTarget?.type === "dart" && floor === DART_SPOT.floor
       ? { type: "dart", data: {} }
       : null;
-  const modalOpen = !!dialog || elevatorOpen || dartOpen || !!recruiter || !!msgTarget || inboxOpen;
+  const modalOpen = !!dialog || elevatorOpen || dartOpen || !!recruiter || !!msgTarget || inboxOpen || photoOpen;
   const canInteract = nearby?.data && !modalOpen;
 
   /* ── 상호작용 ── */
@@ -1281,6 +1285,17 @@ export default function App() {
     setMode("login");
     setLobbyMsg("");
   };
+
+  // 사진 구역 들어감/나감 확인 (0.4초마다)
+  useEffect(() => {
+    if (!me) return;
+    const t = setInterval(() => {
+      const p = myPosRef.current;
+      const z = zoneAt(me.floor, p.x, p.z);
+      setPhotoZone((prev) => (prev?.id === z?.id ? prev : z));
+    }, 400);
+    return () => clearInterval(t);
+  }, [me?.floor, !!me]); // eslint-disable-line
 
   const enter = (e) => {
     e.preventDefault();
@@ -1526,6 +1541,7 @@ export default function App() {
         📬 메시지함
         {inboxUnread > 0 && <span style={styles.badge}>{inboxUnread}</span>}
       </button>
+      <PhotoSpot zone={photoZone} open={photoOpen} setOpen={setPhotoOpen} />
       {inboxOpen && <Inbox onClose={() => setInboxOpen(false)} onRead={() => setInboxUnread(0)} />}
 
       {!dialog && !recruiter && <ChatLog lines={chatLines} myId={me.id} floor={floor} />}
