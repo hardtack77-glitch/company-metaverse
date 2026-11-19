@@ -167,7 +167,7 @@ async function saveClaim(treasureId, player) {
 /* ───────── 이벤트 ───────── */
 io.on("connection", (socket) => {
   // 1) 입장
-  socket.on("join", ({ name, key, look } = {}, ack) => {
+  socket.on("join", ({ name, key, look, resume } = {}, ack) => {
     if (players.has(socket.id)) return; // 중복 join 무시
     if (players.size >= MAX_PLAYERS) {
       const res = { ok: false, message: `정원(${MAX_PLAYERS}명)이 가득 찼습니다. 잠시 후 다시 시도해 주세요.` };
@@ -185,6 +185,15 @@ io.on("connection", (socket) => {
       position: [START_POSITION[0] + Math.random() * 1.6 - 0.8, 0, START_POSITION[2] + Math.random() * 0.6 - 0.3],
       rotationY: 0,
     };
+    // 재연결·링크에서 돌아온 경우: 마지막 층·위치에서 이어서
+    if (
+      resume && FLOORS.includes(resume.floor) && Array.isArray(resume.position) && resume.position.length === 3 &&
+      resume.position.every((v) => Number.isFinite(v) && Math.abs(v) < 80)
+    ) {
+      player.floor = resume.floor;
+      player.position = [resume.position[0], 0, resume.position[2]];
+      player.rotationY = Number.isFinite(resume.rotationY) ? resume.rotationY : 0;
+    }
     players.set(socket.id, player);
     socket.join(player.floor);
 

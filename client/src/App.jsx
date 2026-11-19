@@ -4,7 +4,8 @@ import React, { Component, Suspense, createContext, useContext, useEffect, useMe
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
-import { socket, connectAs, claimTreasure, changeFloor, submitDart } from "./socket.js";
+import { socket, connectAs, claimTreasure, changeFloor, submitDart, sendMove, rememberPose } from "./socket.js";
+import { openExternal, shouldAutoResume, clearResume } from "./openLink.js";
 import DartGame from "./DartGame.jsx";
 import { STAFF_NPCS, COUNSEL_FLOORS, seatedWorkers, RECRUITERS, RECRUIT_LINKS, RECRUIT_GREETING, RECRUIT_HELLOS } from "./staff.js";
 import SeatedCrowd from "./SeatedCrowd.jsx";
@@ -815,7 +816,7 @@ function MyAvatar({ me, inputRef, bubble, myPosRef, frozen, bounds, colliders, c
       const key = pos.join(",") + "|" + rot;
       if (key !== lastSent.current) {
         lastSent.current = key;
-        if (!frozen) socket.emit("move", { position: pos, rotationY: rot });
+        if (!frozen) sendMove(pos, rot);
       }
     }
   });
@@ -1172,6 +1173,7 @@ export default function App() {
     if (res.ok) {
       await new Promise((r) => setTimeout(r, 600)); // 엘리베이터 연출
       setMe((m) => ({ ...m, floor: res.floor, position: res.position }));
+      rememberPose({ floor: res.floor, position: res.position });
       setOthers(Object.fromEntries(res.players.filter((p) => p.id !== socket.id).map((p) => [p.id, p])));
       setBubbles({});
       setNearbyTarget(null);
@@ -1196,6 +1198,21 @@ export default function App() {
     window.addEventListener("cm-interact", h);
     return () => window.removeEventListener("cm-interact", h);
   }, []);
+
+  // 채용담당자 링크를 열었다가 30분 안에 돌아오면 → 로비 없이 마지막 자리에서 바로 이어서
+  useEffect(() => {
+    if (!shouldAutoResume()) return;
+    clearResume();
+    const name = localStorage.getItem("cm_name");
+    if (!name) return;
+    let saved = null;
+    try {
+      saved = JSON.parse(localStorage.getItem("cm_look"));
+    } catch {
+      /* 무시 */
+    }
+    connectAs(name, saved || look, { resume: true });
+  }, []); // eslint-disable-line
 
   const enter = (e) => {
     e.preventDefault();
@@ -1393,12 +1410,13 @@ export default function App() {
           <p style={styles.dialogText}>{recruiter.text}</p>
           <div style={styles.menuList}>
             {/* 미니게임·채용 사이트는 새 창(탭)으로 열기 — 메타버스 화면은 그대로 남아 있어 탭만 바꾸면 복귀 */}
-            <a style={{ ...styles.menuBtn, textDecoration: "none", display: "block" }} href={RECRUIT_LINKS.game} target="_blank" rel="noopener noreferrer">
+            <button style={styles.menuBtn} onClick={() => openExternal(RECRUIT_LINKS.game)}>
               1. 미니게임하기
-            </a>
-            <a style={{ ...styles.menuBtn, textDecoration: "none", display: "block" }} href={RECRUIT_LINKS.apply} target="_blank" rel="noopener noreferrer">
+            </button>
+            <button style={styles.menuBtn} onClick={() => openExternal(RECRUIT_LINKS.apply)}>
               2. 임직원추천 지원하기
-            </a>
+            </button>
+            <div style={styles.menuNote}>새 창(바깥 브라우저)으로 열려요. 같은 창에서 열렸다면 뒤로 가기를 누르면 이 자리로 돌아와요.</div>
             <button
               style={styles.menuBtn}
               onClick={() => {
@@ -1470,6 +1488,7 @@ const styles = {
   dialogTitle: { color: "#fbbf24", fontWeight: 800, fontSize: 14, marginBottom: 6 },
   dialogText: { margin: "0 0 8px", fontSize: 16, lineHeight: 1.55, whiteSpace: "pre-line" },
   menuList: { display: "grid", gap: 8, marginTop: 4 },
+  menuNote: { fontSize: 12, color: "#9ca3af", lineHeight: 1.4 },
   menuBtn: { textAlign: "left", background: "#1f2937", color: "#fff", border: "1px solid #4b5563", borderRadius: 10, padding: "11px 14px", fontSize: 15, fontWeight: 700 },
   menuClose: { background: "transparent", color: "#9ca3af", border: 0, fontSize: 16, padding: 4 },
   dialogHint: { fontSize: 12, color: "#9ca3af", textAlign: "right" },

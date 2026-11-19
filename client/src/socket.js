@@ -23,17 +23,54 @@ function getPlayerKey() {
   return key;
 }
 
+// 지금 내 층·위치 (다시 연결되거나 링크에서 돌아왔을 때 그 자리에서 이어서 하기)
+const POSE_KEY = "cm_pose";
+const pose = (() => {
+  try {
+    return JSON.parse(localStorage.getItem(POSE_KEY)) || {};
+  } catch {
+    return {};
+  }
+})();
+let poseSavedAt = 0;
+export function rememberPose(update) {
+  Object.assign(pose, update);
+  const now = Date.now();
+  if (now - poseSavedAt > 1500) {
+    poseSavedAt = now;
+    try {
+      localStorage.setItem(POSE_KEY, JSON.stringify(pose));
+    } catch {
+      /* 무시 */
+    }
+  }
+}
+const resumePayload = () => (pose.floor && pose.position ? { floor: pose.floor, position: pose.position, rotationY: pose.rotationY || 0 } : undefined);
+// 이동 보내기 + 위치 기억
+export function sendMove(position, rotationY) {
+  socket.emit("move", { position, rotationY });
+  rememberPose({ position, rotationY });
+}
+socket.on("init", ({ me } = {}) => me && rememberPose({ floor: me.floor, position: me.position }));
+
 let lastName = "";
 let lastLook = null; // { type, outfit } 캐릭터 모양·가디건 색
-export function connectAs(name, look) {
+let resumeNext = false; // 다음 입장 때 마지막 자리에서 이어서 하기
+export function connectAs(name, look, { resume = false } = {}) {
   lastName = name;
   lastLook = look || null;
+  resumeNext = resume;
   if (!socket.connected) socket.connect();
-  else socket.emit("join", { name, key: getPlayerKey(), look: lastLook });
+  else socket.emit("join", { name, key: getPlayerKey(), look: lastLook, resume: resume ? resumePayload() : undefined });
 }
-// 연결(재연결 포함)될 때마다 자동 입장
+// 연결(재연결 포함)될 때마다 자동 입장 — 재연결이면 마지막 자리에서 이어서
+let joinedOnce = false;
 socket.on("connect", () => {
-  if (lastName) socket.emit("join", { name: lastName, key: getPlayerKey(), look: lastLook });
+  if (!lastName) return;
+  const resume = joinedOnce || resumeNext ? resumePayload() : undefined;
+  socket.emit("join", { name: lastName, key: getPlayerKey(), look: lastLook, resume });
+  joinedOnce = true;
+  resumeNext = false;
 });
 
 // 서버 응답(Acknowledgement)을 Promise 로 받기 — 5초 안에 응답 없으면 실패 처리
