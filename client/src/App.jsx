@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { socket, connectAs, claimTreasure, changeFloor, submitDart, sendMove, rememberPose } from "./socket.js";
 import { openExternal, shouldAutoResume, clearResume } from "./openLink.js";
 import DartGame from "./DartGame.jsx";
+import NpcMessage from "./NpcMessage.jsx";
 import { STAFF_NPCS, COUNSEL_FLOORS, seatedWorkers, RECRUITERS, RECRUIT_LINKS, RECRUIT_GREETING, RECRUIT_HELLOS } from "./staff.js";
 import SeatedCrowd from "./SeatedCrowd.jsx";
 
@@ -1000,6 +1001,7 @@ export default function App() {
   const [elevatorOpen, setElevatorOpen] = useState(false);
   const [dartOpen, setDartOpen] = useState(false); // 다트 게임 화면
   const [recruiter, setRecruiter] = useState(null); // 채용담당자 메뉴 { text }
+  const [msgTarget, setMsgTarget] = useState(null); // 메시지를 남길 NPC { id, name }
   const helloIdx = useRef(Math.floor(Math.random() * RECRUIT_HELLOS.length));
   const [busy, setBusy] = useState(false); // 서버 응답 대기 중
   const [spawnSeq, setSpawnSeq] = useState(0); // 층 이동 시 내 아바타를 새 위치에 다시 배치
@@ -1130,18 +1132,23 @@ export default function App() {
       : nearbyTarget?.type === "dart" && floor === DART_SPOT.floor
       ? { type: "dart", data: {} }
       : null;
-  const modalOpen = !!dialog || elevatorOpen || dartOpen || !!recruiter;
+  const modalOpen = !!dialog || elevatorOpen || dartOpen || !!recruiter || !!msgTarget;
   const canInteract = nearby?.data && !modalOpen;
 
   /* ── 상호작용 ── */
-  const openDialog = (title, lines) => setDialog({ title, lines: [].concat(lines), page: 0 });
+  // npc 를 넘기면 마지막 페이지에 "메시지 남기기" 메뉴가 나옴
+  const openDialog = (title, lines, npc = null) => setDialog({ title, lines: [].concat(lines), page: 0, npc });
   const nextDialog = () =>
-    setDialog((d) => (d && d.page < d.lines.length - 1 ? { ...d, page: d.page + 1 } : null));
+    setDialog((d) => {
+      if (!d) return null;
+      if (d.page < d.lines.length - 1) return { ...d, page: d.page + 1 };
+      return d.npc ? d : null; // NPC 대화의 마지막 페이지는 버튼으로 닫음
+    });
 
   const interact = () => {
     if (!canInteract || busy) return;
     if (nearby.type === "npc" && nearby.data.menu === "recruiter") setRecruiter({ text: RECRUIT_GREETING });
-    else if (nearby.type === "npc") openDialog(nearby.data.name, nearby.data.dialog);
+    else if (nearby.type === "npc") openDialog(nearby.data.name, nearby.data.dialog, { id: nearby.data.id, name: nearby.data.name });
     else if (nearby.type === "treasure") pickUp(nearby.data);
     else if (nearby.type === "elevator") setElevatorOpen(true);
     else if (nearby.type === "dart") setDartOpen(true);
@@ -1375,6 +1382,7 @@ export default function App() {
         </button>
       )}
 
+      {msgTarget && <NpcMessage npc={msgTarget} onClose={() => setMsgTarget(null)} />}
       {dartOpen && <DartGame playerName={me.name} onSubmit={submitDart} onClose={() => setDartOpen(false)} />}
 
       {elevatorOpen && (
@@ -1416,7 +1424,6 @@ export default function App() {
             <button style={styles.menuBtn} onClick={() => openExternal(RECRUIT_LINKS.apply)}>
               2. 임직원추천 지원하기
             </button>
-            <div style={styles.menuNote}>새 창(바깥 브라우저)으로 열려요. 같은 창에서 열렸다면 뒤로 가기를 누르면 이 자리로 돌아와요.</div>
             <button
               style={styles.menuBtn}
               onClick={() => {
@@ -1426,6 +1433,16 @@ export default function App() {
             >
               3. 인사하기
             </button>
+            <button
+              style={styles.menuBtn}
+              onClick={() => {
+                setRecruiter(null);
+                setMsgTarget({ id: "recruiter", name: "채용담당자" });
+              }}
+            >
+              4. 💌 메시지 남기기
+            </button>
+            <div style={styles.menuNote}>1·2번은 새 창(바깥 브라우저)으로 열려요. 같은 창에서 열렸다면 뒤로 가기를 누르면 이 자리로 돌아와요.</div>
           </div>
         </div>
       )}
@@ -1434,9 +1451,31 @@ export default function App() {
         <div style={styles.dialog} onClick={nextDialog}>
           <div style={styles.dialogTitle}>{dialog.title}</div>
           <p style={styles.dialogText}>{dialog.lines[dialog.page]}</p>
-          <div style={styles.dialogHint}>
-            {dialog.page < dialog.lines.length - 1 ? "▼ 터치해서 계속" : "터치해서 닫기"}
-          </div>
+          {dialog.npc && dialog.page === dialog.lines.length - 1 ? (
+            <div style={styles.dialogActions}>
+              <button
+                style={styles.dialogMsgBtn}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMsgTarget(dialog.npc);
+                  setDialog(null);
+                }}
+              >
+                💌 메시지 남기기
+              </button>
+              <button
+                style={styles.dialogCloseBtn}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDialog(null);
+                }}
+              >
+                닫기
+              </button>
+            </div>
+          ) : (
+            <div style={styles.dialogHint}>{dialog.page < dialog.lines.length - 1 ? "▼ 터치해서 계속" : "터치해서 닫기"}</div>
+          )}
         </div>
       )}
 
@@ -1491,6 +1530,9 @@ const styles = {
   menuNote: { fontSize: 12, color: "#9ca3af", lineHeight: 1.4 },
   menuBtn: { textAlign: "left", background: "#1f2937", color: "#fff", border: "1px solid #4b5563", borderRadius: 10, padding: "11px 14px", fontSize: 15, fontWeight: 700 },
   menuClose: { background: "transparent", color: "#9ca3af", border: 0, fontSize: 16, padding: 4 },
+  dialogActions: { display: "flex", gap: 8, marginTop: 4 },
+  dialogMsgBtn: { flex: 1, background: "#e6007e", color: "#fff", border: 0, borderRadius: 10, padding: "10px 0", fontSize: 15, fontWeight: 700 },
+  dialogCloseBtn: { flex: "0 0 84px", background: "#374151", color: "#fff", border: 0, borderRadius: 10, padding: "10px 0", fontSize: 15 },
   dialogHint: { fontSize: 12, color: "#9ca3af", textAlign: "right" },
   backdrop: { position: "absolute", inset: 0, background: "rgba(0,0,0,.35)", display: "grid", placeItems: "center", zIndex: 40 },
   elevatorPanel: { width: 240, background: "#1f2937", borderRadius: 16, padding: 16, border: "2px solid #94a3b8", display: "flex", flexDirection: "column", gap: 8 },

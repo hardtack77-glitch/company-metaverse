@@ -115,3 +115,10 @@ client/public/floor_7f.glb
   - 겉모습(머리 모양·가디건 색)은 이름으로 정해지는 랜덤이라 매번 같게 나옵니다.
 - 돌아다니는 NPC 는 내가 가까이 가면 멈춰서 바라보고, 대화하기 버튼이 뜹니다.
 - 상담석의 약 절반에는 일하는 상담사(배경용, `client/src/SeatedCrowd.jsx`)가 앉아 있습니다. 많아도 가볍게 그리도록 단순한 모양입니다.
+
+## 💌 NPC 에게 메시지 남기기
+- NPC 와 대화하면 마지막에 **💌 메시지 남기기** 버튼 (채용담당자는 메뉴 4번)
+- 공개 메시지는 그 NPC 에게 말을 건 다른 사람도 볼 수 있고, 비공개는 관리자만 볼 수 있음
+- 관리자 메시지함: `https://company-metaverse.onrender.com/admin/messages?key=관리자키`
+  - Render → 서비스 → Environment → `ADMIN_KEY` 에 원하는 비밀 키를 넣어야 열림 (엑셀 CSV 다운로드 가능)
+- Firebase(FIREBASE_SERVICE_ACCOUNT)가 없으면 메시지는 서버 메모리에만 있어 서버가 다시 켜지면 사라짐

@@ -89,3 +89,8 @@ export const changeFloor = (floor) =>
 // 다트 게임 점수 보내기 → { ok, isBest, best, rank, top: [{name, score}] }
 export const submitDart = (score) =>
   request("dartScore", score, { ok: false, message: "서버 응답이 없어요. 랭킹은 다음에 다시 확인해 주세요." });
+
+// NPC 에게 메시지 남기기 / 공개 메시지 보기 → { ok, messages: [{ from, text, at }] }
+export const sendNpcMessage = (payload) =>
+  request("npcMessage", payload, { ok: false, message: "서버 응답이 없어요. 잠시 후 다시 시도해 주세요." });
+export const getNpcMessages = (npcId) => request("npcMessages", npcId, { ok: false, messages: [] });

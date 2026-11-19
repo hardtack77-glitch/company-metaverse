@@ -82,7 +82,7 @@ if (fs.existsSync(CLIENT_DIST)) {
       },
     })
   );
-  app.get(/^\/(?!socket\.io|health).*/, (_req, res) => res.sendFile(path.join(CLIENT_DIST, "index.html")));
+  app.get(/^\/(?!socket\.io|health|admin).*/, (_req, res) => res.sendFile(path.join(CLIENT_DIST, "index.html")));
 } else {
   app.get("/", (_req, res) => res.send("company-metaverse server OK (client 미빌드: 개발 모드)"));
 }
@@ -120,6 +120,54 @@ function treasuresFor(key) {
   }));
 }
 
+/* ───────── NPC 에게 남긴 메시지 ─────────
+   - 공개 메시지: NPC 에게 말을 건 사람들이 볼 수 있음 (최근 것만)
+   - 비공개 메시지: 관리자 페이지에서만 볼 수 있음
+   - 관리자 페이지: /admin/messages?key=관리자키 (Render 환경변수 ADMIN_KEY 에 키 설정)
+   - FIREBASE_SERVICE_ACCOUNT 가 있으면 Firestore(npcMessages) 에도 저장 → 서버가 다시 켜져도 유지 */
+const ADMIN_KEY = process.env.ADMIN_KEY || "";
+const MSG_MAX_LEN = 200;
+const MSG_KEEP = 300; // NPC 한 명당 메모리에 남기는 최대 개수
+const npcMessages = new Map(); // npcId → [{ id, npcId, npcName, floor, from, text, isPublic, at }]
+function addMessage(m) {
+  const list = npcMessages.get(m.npcId) || [];
+  list.push(m);
+  if (list.length > MSG_KEEP) list.splice(0, list.length - MSG_KEEP);
+  npcMessages.set(m.npcId, list);
+}
+const publicMessages = (npcId, n = 15) =>
+  (npcMessages.get(npcId) || [])
+    .filter((m) => m.isPublic)
+    .slice(-n)
+    .reverse()
+    .map(({ from, text, at }) => ({ from, text, at }));
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+app.get("/admin/messages", (req, res) => {
+  if (!ADMIN_KEY) return res.status(403).send("관리자 키(ADMIN_KEY 환경변수)가 아직 설정되지 않았어요. Render → Environment 에 ADMIN_KEY 를 추가해 주세요.");
+  if (req.query.key !== ADMIN_KEY) return res.status(403).send("관리자 키가 맞지 않아요.");
+  const all = [...npcMessages.values()].flat().sort((a, b) => (a.at < b.at ? 1 : -1));
+  if (req.query.format === "csv") {
+    const rows = [["시간", "층", "받는 NPC", "보낸 사람", "공개", "메시지"], ...all.map((m) => [m.at, m.floor, m.npcName, m.from, m.isPublic ? "공개" : "비공개", m.text])];
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=npc_messages.csv");
+    return res.send("\ufeff" + rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n"));
+  }
+  const byNpc = {};
+  for (const m of all) (byNpc[m.npcName] ||= []).push(m);
+  const fmt = (iso) => new Date(iso).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+  const sections = Object.entries(byNpc)
+    .map(([npc, list]) => `<h2>${escapeHtml(npc)} <small>${list.length}건</small></h2><table><tr><th>시간</th><th>층</th><th>보낸 사람</th><th>공개</th><th>메시지</th></tr>${list
+      .map((m) => `<tr><td>${fmt(m.at)}</td><td>${escapeHtml(m.floor)}</td><td>${escapeHtml(m.from)}</td><td>${m.isPublic ? "공개" : "🔒 비공개"}</td><td>${escapeHtml(m.text)}</td></tr>`)
+      .join("")}</table>`)
+    .join("");
+  res.send(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NPC 메시지함</title>
+<style>body{font-family:system-ui,sans-serif;margin:16px;color:#111}h1{font-size:20px}h2{font-size:16px;margin-top:24px}small{color:#888;font-weight:400}
+table{border-collapse:collapse;width:100%;font-size:14px}td,th{border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top}th{background:#f5f5f5}</style></head>
+<body><h1>💌 NPC 메시지함 <small>총 ${all.length}건 · 저장: ${db ? "Firestore" : "서버 메모리(재시작 시 초기화)"}</small></h1>
+<p><a href="?key=${encodeURIComponent(ADMIN_KEY)}&format=csv">엑셀(CSV)로 받기</a></p>${sections || "<p>아직 메시지가 없어요.</p>"}</body></html>`);
+});
+
 /* ───────── 보물 기록 저장 ─────────
    환경변수 FIREBASE_SERVICE_ACCOUNT (Firebase 서비스 계정 JSON 전체)가 있으면 Firestore 에 저장,
    없으면 서버 메모리에만 저장 (서버가 재시작되면 초기화)                                    */
@@ -137,6 +185,9 @@ async function initStorage() {
       if (foundBy[treasureId] && key) foundBy[treasureId].add(key);
     });
     console.log(`✅ 보물 기록: Firestore 연결 (기존 기록 ${snap.size}건 복원)`);
+    const msgSnap = await db.collection("npcMessages").orderBy("at").limitToLast(3000).get();
+    msgSnap.forEach((doc) => addMessage(doc.data()));
+    console.log(`✅ NPC 메시지: ${msgSnap.size}건 복원`);
   } catch (err) {
     db = null;
     console.error("⚠️ Firestore 연결 실패 → 메모리 저장으로 계속:", err.message);
@@ -260,6 +311,31 @@ io.on("connection", (socket) => {
     reply({ ok: true, isBest, best: mine.score, rank: all.indexOf(mine) + 1, top: all.slice(0, 10) });
     socket.to(p.floor).emit("dartNews", { name: p.name, score: s });
     console.log(`[다트] ${p.name} ${s}점${isBest ? " (최고 기록)" : ""}`);
+  });
+
+  // 3-3) NPC 에게 메시지 남기기 / 공개 메시지 보기
+  let lastMsgAt = 0;
+  socket.on("npcMessage", ({ npcId, npcName, text, isPublic } = {}, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = players.get(socket.id);
+    if (!p) return reply({ ok: false, message: "먼저 입장해 주세요." });
+    const id = clean(npcId, 64);
+    const body = clean(text, MSG_MAX_LEN);
+    if (!id || !body) return reply({ ok: false, message: "메시지를 입력해 주세요." });
+    if (Date.now() - lastMsgAt < 5000) return reply({ ok: false, message: "조금 뒤에 다시 남겨 주세요. (5초에 한 번)" });
+    lastMsgAt = Date.now();
+    const m = {
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      npcId: id, npcName: clean(npcName, 40) || id, floor: p.floor,
+      from: p.name, key: p.key, text: body, isPublic: isPublic !== false, at: new Date().toISOString(),
+    };
+    addMessage(m);
+    if (db) db.collection("npcMessages").doc(m.id).set(m).catch((e) => console.error("메시지 저장 실패:", e.message));
+    console.log(`[메시지] ${m.from} → ${m.npcName}${m.isPublic ? "" : " (비공개)"}: ${m.text}`);
+    reply({ ok: true, messages: publicMessages(id) });
+  });
+  socket.on("npcMessages", (npcId, ack) => {
+    if (typeof ack === "function") ack({ ok: true, messages: publicMessages(clean(npcId, 64)) });
   });
 
   // 4) 채팅 → 같은 층
