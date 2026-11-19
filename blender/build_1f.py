@@ -549,7 +549,7 @@ cbox("Reception_Counter_Top", 3.2, -5.6, 1.1, 0.95, 2.6, 0.04, M["charcoal"])
 cbox("Reception_Info_Sign", 2.76, -6.6, 0.6, 0.02, 0.3, 0.3, M["white"])
 T("Reception_Info_Mark", "i", 2.74, -6.6, 0.75, 0.12, 0.2, M["black"], "W")
 cbox("Reception_Monitor", 3.45, -5.2, 1.14, 0.05, 0.5, 0.32, M["black"])
-cbox("Reception_White_Bench", 2.6, -3.6, 0, 1.7, 0.52, 0.5, M["white"])  # 탕비실 가는 길 확보 (원본 X 3.6)
+# (안내데스크 옆 흰색 벤치 소파는 요청으로 삭제)
 for i, (x, y, s, z) in enumerate([(2.35, -7.25, 0.5, 0), (2.35, -7.8, 0.45, 0), (2.35, -7.3, 0.35, 0.4)]):
     cbox(f"Reception_Delivery_Box_{i + 1}", x, y, z, s, s, s * 0.8, M["box"])
 # KSQI 2026 스탠드 배너 (라운지 입구, 영상)
@@ -728,8 +728,12 @@ for i in range(3):  # 펜던트·레일 조명 (천장)
 # =====================================================================
 # 서쪽 끝: 그린월 복도로 통하는 LG U+ 보안 유리문
 wall("Security_Glass_Wall", 0, 4.45, 0, 6.8, M["frosted"], t=0.06, openings=[(0.25, 1.85, 2.5)])
-cbox("Security_Glass_Door_Open", 0.6, 4.95, 0, 1.1, 0.05, 2.45, M["frosted"])
-T("Security_Glass_Door_Logo", "LG U+", 0.03, 5.5, 1.35, 0.9, 0.22, M["magenta"], "E", extrude=0.015)
+# 자동문 (좌우로 열림): 이름 AutoDoor_<그룹>_* → 게임에서 사람이 다가가면 양쪽으로 미끄러져 열림
+box("AutoDoor_Edu_L", -0.03, 4.7, 0, 0.03, 5.5, 2.45, M["frosted"])
+box("AutoDoor_Edu_R", -0.03, 5.5, 0, 0.03, 6.3, 2.45, M["frosted"])
+for side, (yc, fx) in {"L": (5.1, "E"), "R": (5.9, "E")}.items():
+    T(f"AutoDoorLogo_Edu_{side}_E", "LG U+", 0.045, yc, 1.35, 0.55, 0.14, M["magenta"], "E", extrude=0.01)
+    T(f"AutoDoorLogo_Edu_{side}_W", "LG U+", -0.045, yc, 1.35, 0.55, 0.14, M["magenta"], "W", extrude=0.01)
 cbox("Security_Card_Reader", 0.08, 6.5, 1.15, 0.03, 0.1, 0.15, M["black"])
 # 북쪽: 불투명 유리 회의실 2칸 (검은 프레임)
 wall("MeetingRoom_Glass_Wall", 0, 6.6, 7.1, 6.6, M["frosted"], t=0.06, openings=[(1.0, 1.95, 2.3), (4.4, 5.35, 2.3)])

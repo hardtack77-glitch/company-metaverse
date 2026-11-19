@@ -145,4 +145,6 @@ client/public/floor_7f.glb
 
 ## 🚪 자동문
 - 6~9층 엘리베이터 홀 → 상담실 메인 출입문(`Main_LGU_Door_L/R`, 6층 `Main_Glass_Door_L/R`)은 사람이 2.1m 안으로 다가가면 좌우로 열리고, 멀어지면 닫힘
+- 1층 교육장(보안 유리문)도 자동문: 블렌더에서 이름을 `AutoDoor_<그룹>_L/R` (로고는 `AutoDoorLogo_<그룹>_...`) 로 지으면 어떤 문이든 자동문이 됨
 - 나뿐 아니라 같은 층의 다른 직원이 다가가도 열림 (조절: App.jsx 의 `AUTO_DOOR_RANGE`, `AUTO_DOOR_SLIDE`)
+- 1층 회전문: 사람이 회전문 가까이(1.5m) 오면 날개(`Revolving_Door_Wing_*`)가 가운데 기둥을 축으로 돌고, 멀어지면 천천히 멈춤

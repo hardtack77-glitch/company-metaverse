@@ -71,10 +71,22 @@ const mapRootRef = { current: null };
 
 // 벽 충돌: 블렌더 맵에서 캐릭터 몸 높이(0.3~1.5m)에 걸치는 물체를 장애물로 사용
 const PLAYER_RADIUS = 0.28; // 캐릭터 몸 반지름(m)
-// 자동문: 6~9층 엘리베이터 홀 → 상담실 메인 출입문 (사람이 다가가면 좌우로 열림)
-const AUTO_DOOR = /^Main_(LGU|Glass)_Door_([LR])$|^Main_Door_Logo_([LR])/;
-const AUTO_DOOR_SLIDE = 0.82; // 한쪽 문이 옆으로 밀려나는 거리(m)
+// 자동문: 사람이 다가가면 좌우로 미끄러져 열림
+//  - 6~9층 메인 출입문(Main_LGU_Door_L/R, Main_Glass_Door_L/R) → 그룹 "main"
+//  - 이름이 AutoDoor_<그룹>_ / AutoDoorLogo_<그룹>_ 로 시작하는 물체 (예: 1층 교육장 문 AutoDoor_Edu_L)
+//  - 문짝은 그룹 가운데에서 바깥쪽(긴 방향)으로 밀려남. 로고도 붙은 문짝과 같이 움직임
+const autoDoorGroup = (name) => {
+  if (/^Main_(LGU|Glass)_Door_[LR]$/.test(name)) return ["main", true];
+  if (/^Main_Door_Logo_[LR]/.test(name)) return ["main", false];
+  const m = /^AutoDoor(Logo)?_([A-Za-z0-9]+)_/.exec(name);
+  return m ? [m[2], !m[1]] : null;
+};
+const AUTO_DOOR_SLIDE = 0.8; // 한쪽 문이 옆으로 밀려나는 거리(m)
 const AUTO_DOOR_RANGE = 2.1; // 이 거리 안에 사람이 있으면 열림
+// 회전문: Revolving_Door_Wing_* 날개를 가운데 기둥 기준으로 돌림 (사람이 안을 지나가면 회전)
+const REVOLVING_WING = /^Revolving_Door_Wing_/;
+const REVOLVING_POST = /^Revolving_Door_Center_Post/;
+const REVOLVING_RANGE = 1.5; // 회전문 가운데에서 이 거리 안이면 회전
 const LIVE_ME = new THREE.Vector3(9999, 0, 9999); // 내 위치 (자동문 감지용)
 const LIVE_OTHERS = new Map(); // 같은 층 다른 직원 위치
 const PASS_THROUGH = /door|ceiling|soffit|roof|천장/i; // 이 이름이 들어간 물체는 통과 (문은 지나다닐 수 있게)
@@ -160,37 +172,80 @@ function useAvailableMaps(floors) {
 
 function GlbMap({ url, onBounds, onColliders }) {
   const { scene } = useGLTF(url);
-  const doors = useRef({ list: [], center: null, open: 0 });
+  const doors = useRef({ groups: [], revolve: null });
   useFrame((_, dt) => {
-    const d = doors.current;
-    if (!d.center) return;
-    const near = (p) => Math.hypot(p.x - d.center.x, p.z - d.center.z) < AUTO_DOOR_RANGE;
-    let want = near(LIVE_ME) ? 1 : 0;
-    if (!want) for (const p of LIVE_OTHERS.values()) if (near(p)) want = 1;
-    const next = THREE.MathUtils.damp(d.open, want, want ? 5 : 3, dt);
-    if (Math.abs(next - d.open) < 1e-4) return;
-    d.open = next;
-    const e = next * next * (3 - 2 * next); // 부드럽게 (smoothstep)
-    for (const { obj, baseX, dir } of d.list) obj.position.x = baseX + dir * AUTO_DOOR_SLIDE * e;
+    const { groups, revolve } = doors.current;
+    const near = (c, r) => {
+      const hit = (p) => Math.hypot(p.x - c.x, p.z - c.z) < r;
+      if (hit(LIVE_ME)) return true;
+      for (const p of LIVE_OTHERS.values()) if (hit(p)) return true;
+      return false;
+    };
+    for (const g of groups) {
+      const want = near(g.center, AUTO_DOOR_RANGE) ? 1 : 0;
+      const next = THREE.MathUtils.damp(g.open, want, want ? 5 : 3, dt);
+      if (Math.abs(next - g.open) < 1e-4) continue;
+      g.open = next;
+      const e = next * next * (3 - 2 * next); // 부드럽게 (smoothstep)
+      for (const { obj, base, dir } of g.parts) obj.position[g.axis] = base + dir * AUTO_DOOR_SLIDE * e;
+    }
+    if (revolve) {
+      const want = near(revolve.center, REVOLVING_RANGE) ? 1.0 : 0; // rad/s (초당 약 1/6바퀴)
+      revolve.speed = THREE.MathUtils.damp(revolve.speed, want, want ? 4 : 1.5, dt);
+      if (revolve.speed > 0.002) revolve.pivot.rotation.y += revolve.speed * dt;
+    }
   });
   useEffect(() => {
-    // 자동문 찾기 (왼쪽 문은 왼쪽(-X)으로, 오른쪽 문은 오른쪽(+X)으로)
-    const list = [];
-    const c = new THREE.Vector3();
-    let n = 0;
+    scene.updateMatrixWorld(true);
+    const box = new THREE.Box3();
+    const byGroup = {};
     scene.traverse((o) => {
-      const m = AUTO_DOOR.exec(o.name || "");
-      if (!m) return;
-      if (o.userData.doorBaseX === undefined) o.userData.doorBaseX = o.position.x;
-      o.position.x = o.userData.doorBaseX;
-      list.push({ obj: o, baseX: o.userData.doorBaseX, dir: (m[2] || m[3]) === "L" ? -1 : 1 });
-      if (m[1]) {
-        c.x += o.userData.doorBaseX;
-        c.z += o.position.z;
-        n += 1;
-      }
+      const g = autoDoorGroup(o.name || "");
+      if (!g) return;
+      if (o.userData.doorBase === undefined) o.userData.doorBase = o.position.clone();
+      o.position.copy(o.userData.doorBase);
+      (byGroup[g[0]] ||= []).push({ obj: o, isPanel: g[1] });
     });
-    doors.current = { list, center: n ? { x: (c.x / n) * MAP_SCALE + MAP_OFFSET[0], z: (c.z / n) * MAP_SCALE + MAP_OFFSET[2] } : null, open: 0 };
+    scene.updateMatrixWorld(true);
+    const groups = [];
+    for (const items of Object.values(byGroup)) {
+      const panels = items.filter((i) => i.isPanel);
+      if (!panels.length) continue;
+      const all = new THREE.Box3();
+      panels.forEach((p) => all.union(box.setFromObject(p.obj)));
+      const size = all.getSize(new THREE.Vector3());
+      const axis = size.x >= size.z ? "x" : "z"; // 문이 놓인 긴 방향으로 미끄러짐
+      const cx = (all.min.x + all.max.x) / 2;
+      const cz = (all.min.z + all.max.z) / 2;
+      const mid = axis === "x" ? cx : cz;
+      const parts = items.map(({ obj }) => {
+        const c = box.setFromObject(obj).getCenter(new THREE.Vector3());
+        return { obj, base: obj.userData.doorBase[axis], dir: (axis === "x" ? c.x : c.z) < mid ? -1 : 1 };
+      });
+      groups.push({ axis, parts, open: 0, center: { x: cx * MAP_SCALE + MAP_OFFSET[0], z: cz * MAP_SCALE + MAP_OFFSET[2] } });
+    }
+    // 회전문 날개를 가운데 기둥 축으로 도는 묶음에 넣기 (한 번만)
+    let revolve = null;
+    let post = null;
+    const wings = [];
+    scene.traverse((o) => {
+      if (REVOLVING_POST.test(o.name || "")) post = o;
+      if (REVOLVING_WING.test(o.name || "")) wings.push(o);
+    });
+    if (post && wings.length) {
+      let pivot = scene.getObjectByName("__RevolvingPivot");
+      if (!pivot) {
+        const c = box.setFromObject(post).getCenter(new THREE.Vector3());
+        pivot = new THREE.Group();
+        pivot.name = "__RevolvingPivot";
+        pivot.position.set(c.x, 0, c.z);
+        scene.add(pivot);
+        scene.updateMatrixWorld(true);
+        wings.forEach((w) => pivot.attach(w));
+      }
+      revolve = { pivot, speed: 0, center: { x: pivot.position.x * MAP_SCALE + MAP_OFFSET[0], z: pivot.position.z * MAP_SCALE + MAP_OFFSET[2] } };
+    }
+    doors.current = { groups, revolve };
   }, [scene]);
   useEffect(() => {
     scene.updateMatrixWorld(true);
