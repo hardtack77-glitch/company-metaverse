@@ -53,17 +53,18 @@ const ELEVATOR_EXITS = {
   "9F": [1.6, 0, 10.55],
 };
 
-// 보물 9종 (층별 3개) — 블렌더 맵의 관련 물체 옆 빈자리
+// 보물 10종 (1·6·7·8·9층 2개씩) — 블렌더 맵의 관련 물체 옆 빈자리
 const treasures = {
-  t1_dart: { id: "t1_dart", floor: "1F", name: "다트 트로피", position: [1.4, 0.5, -0.7] }, // 북카페 BULLSEYE 다트 앞
   t1_coupon: { id: "t1_coupon", floor: "1F", name: "카페 쿠폰", position: [11.9, 0.5, 3.9] }, // 카페테리아 창가
   t1_headset: { id: "t1_headset", floor: "1F", name: "황금 헤드셋", position: [12.4, 0.5, -16.3] }, // 강사실
-  t6_badge: { id: "t6_badge", floor: "6F", name: "소방담요 안전배지", position: [-15.11, 0.5, 8.85] },
   t6_ksqi: { id: "t6_ksqi", floor: "6F", name: "KSQI 인증패", position: [-15.4, 0.5, 10.25] },
   t6_dino: { id: "t6_dino", floor: "6F", name: "노란 공룡 인형", position: [-0.6, 0.5, 5.8] },
-  t7_plant: { id: "t7_plant", floor: "7F", name: "일언천금 화분", position: [4.6, 0.5, 4.5] },
   t7_cushion: { id: "t7_cushion", floor: "7F", name: "빨간 하트 쿠션", position: [5.33, 0.5, -1.0] },
   t7_card: { id: "t7_card", floor: "7F", name: "상담실 에티켓 황금 사원증", position: [-8.9, 0.5, -5.3] }, // 중앙 기둥 옆 에티켓 보드
+  t8_blanket: { id: "t8_blanket", floor: "8F", name: "수면실 포근한 담요", position: [4.2, 0.5, -12.0] }, // 수면실 안마의자 앞
+  t8_remote: { id: "t8_remote", floor: "8F", name: "Clova TV 리모컨", position: [-0.6, 0.5, 6.6] }, // 출입구 왼쪽 TV 선반
+  t9_marker: { id: "t9_marker", floor: "9F", name: "회의실 황금 마커", position: [-7.3, 0.5, 6.0] }, // 회의실 3
+  t9_bulb: { id: "t9_bulb", floor: "9F", name: "정원 코너 황금 전구", position: [3.35, 0.5, -6.6] }, // 휴게실 정원 코너
 };
 
 /* ───────── 상태 ───────── */

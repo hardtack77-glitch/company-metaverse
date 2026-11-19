@@ -74,7 +74,7 @@ client/public/floor_7f.glb
 ### 좌표 맞추기
 - 첫 입장 위치(1층 정문 로비): `server/index.js` 의 `START_POSITION`
 - 엘리베이터 앞 파란 원형 마커 위치: `server/index.js` 의 `ELEVATORS` (엘리베이터 문은 마커 1.6m 뒤에 그려짐)
-- 보물 9종 위치·층·이름: `server/index.js` 의 `treasures`
+- 보물 10종(층마다 2개) 위치·층·이름: `server/index.js` 의 `treasures`
 - NPC 6명 위치·층·대사·가디건 색: `client/src/App.jsx` 맨 위 `NPCS`
 - 맵이 너무 크거나 작으면 `client/src/App.jsx` 의 `MAP_SCALE`, 이동 범위는 `BOUNDS`
 

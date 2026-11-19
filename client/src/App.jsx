@@ -93,21 +93,14 @@ const BASE_NPCS = [
     id: "npc_1f_desk", floor: "1F", name: "안내데스크 매니저", color: "#e6007e", position: [3.95, 0, 5.6], rotationY: -Math.PI / 2,
     dialog: [
       "LG유플러스 대구고객센터 가상 오피스에 오신 걸 환영합니다!",
-      "1층·6층·7층에 보물 9개가 숨겨져 있어요. 노란 상자를 찾아보세요.",
+      "보물은 1층부터 6·7·8·9층까지 모든 층 곳곳에 숨겨져 있어요. 노란 상자를 찾아보세요!",
       "층 이동은 엘리베이터 홀의 파란 원 위에서 할 수 있어요.",
+      "층마다 있는 채용담당자에게 말을 걸면 미니게임, 임직원 추천 등 더 많은 정보를 얻을 수 있어요!",
     ],
   },
   {
-    id: "npc_6f_leader", floor: "6F", name: "CS1그룹 팀장", color: "#6d28d9", position: [0.8, 0, 3.5],
-    dialog: ["오늘도 콜 많았죠? 수고했어요, 오늘도^^!", "우리 층 어딘가에 KSQI 인증패가 있다던데…"],
-  },
-  {
     id: "npc_6f_safety", floor: "6F", name: "안전관리 매니저", model: "Character_NPC_YellowVest", color: "#eab308", position: [-4.6, 0, 10.4],
-    dialog: ["비상시엔 소방담요 위치부터 확인하세요.", "안전 수칙을 잘 지킨 분께는 배지를 드려요!"],
-  },
-  {
-    id: "npc_7f_bar", floor: "7F", name: "REST BAR 매니저", color: "#f97316", position: [5.5, 0, 3.0],
-    dialog: ["REST BAR에서 잠깐 쉬어가세요~", "일언천금! 말 한마디가 천금이에요."],
+    dialog: ["비상시엔 소방담요 위치부터 확인하세요.", "우리 층 어딘가에 KSQI 인증패가 숨어 있다던데…"],
   },
 ];
 const NPCS = [...BASE_NPCS, ...STAFF_NPCS, ...RECRUITERS];
@@ -1006,7 +999,6 @@ export default function App() {
   const [elevatorOpen, setElevatorOpen] = useState(false);
   const [dartOpen, setDartOpen] = useState(false); // 다트 게임 화면
   const [recruiter, setRecruiter] = useState(null); // 채용담당자 메뉴 { text }
-  const [webView, setWebView] = useState(null); // 앱 안에서 여는 웹페이지 { url, title }
   const helloIdx = useRef(Math.floor(Math.random() * RECRUIT_HELLOS.length));
   const [busy, setBusy] = useState(false); // 서버 응답 대기 중
   const [spawnSeq, setSpawnSeq] = useState(0); // 층 이동 시 내 아바타를 새 위치에 다시 배치
@@ -1137,7 +1129,7 @@ export default function App() {
       : nearbyTarget?.type === "dart" && floor === DART_SPOT.floor
       ? { type: "dart", data: {} }
       : null;
-  const modalOpen = !!dialog || elevatorOpen || dartOpen || !!recruiter || !!webView;
+  const modalOpen = !!dialog || elevatorOpen || dartOpen || !!recruiter;
   const canInteract = nearby?.data && !modalOpen;
 
   /* ── 상호작용 ── */
@@ -1400,16 +1392,10 @@ export default function App() {
           </div>
           <p style={styles.dialogText}>{recruiter.text}</p>
           <div style={styles.menuList}>
-            <button
-              style={styles.menuBtn}
-              onClick={() => {
-                setRecruiter(null);
-                setWebView({ url: RECRUIT_LINKS.game, title: "🎮 미니게임" });
-              }}
-            >
+            {/* 미니게임·채용 사이트는 새 창(탭)으로 열기 — 메타버스 화면은 그대로 남아 있어 탭만 바꾸면 복귀 */}
+            <a style={{ ...styles.menuBtn, textDecoration: "none", display: "block" }} href={RECRUIT_LINKS.game} target="_blank" rel="noopener noreferrer">
               1. 미니게임하기
-            </button>
-            {/* 채용 사이트는 새 창(탭)으로 열기 — 메타버스 화면은 그대로 유지 */}
+            </a>
             <a style={{ ...styles.menuBtn, textDecoration: "none", display: "block" }} href={RECRUIT_LINKS.apply} target="_blank" rel="noopener noreferrer">
               2. 임직원추천 지원하기
             </a>
@@ -1423,19 +1409,6 @@ export default function App() {
               3. 인사하기
             </button>
           </div>
-        </div>
-      )}
-
-      {webView && (
-        <div style={styles.webView}>
-          <div style={styles.webViewBar}>
-            <b>{webView.title}</b>
-            <span style={{ display: "flex", gap: 8 }}>
-              <a href={webView.url} target="_blank" rel="noopener noreferrer" style={styles.webViewLink}>새 창으로 열기</a>
-              <button style={styles.webViewClose} onClick={() => setWebView(null)}>닫기 ✕</button>
-            </span>
-          </div>
-          <iframe title={webView.title} src={webView.url} style={styles.webViewFrame} allow="fullscreen; autoplay; clipboard-write" />
         </div>
       )}
 
@@ -1499,11 +1472,6 @@ const styles = {
   menuList: { display: "grid", gap: 8, marginTop: 4 },
   menuBtn: { textAlign: "left", background: "#1f2937", color: "#fff", border: "1px solid #4b5563", borderRadius: 10, padding: "11px 14px", fontSize: 15, fontWeight: 700 },
   menuClose: { background: "transparent", color: "#9ca3af", border: 0, fontSize: 16, padding: 4 },
-  webView: { position: "fixed", inset: 0, background: "#fff", zIndex: 60, display: "flex", flexDirection: "column" },
-  webViewBar: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "calc(8px + env(safe-area-inset-top)) 12px 8px", background: "#111827", color: "#fff", fontSize: 15 },
-  webViewLink: { color: "#93c5fd", fontSize: 13, alignSelf: "center" },
-  webViewClose: { background: "#e6007e", color: "#fff", border: 0, borderRadius: 8, padding: "6px 12px", fontWeight: 700 },
-  webViewFrame: { flex: 1, width: "100%", border: 0 },
   dialogHint: { fontSize: 12, color: "#9ca3af", textAlign: "right" },
   backdrop: { position: "absolute", inset: 0, background: "rgba(0,0,0,.35)", display: "grid", placeItems: "center", zIndex: 40 },
   elevatorPanel: { width: 240, background: "#1f2937", borderRadius: 16, padding: 16, border: "2px solid #94a3b8", display: "flex", flexDirection: "column", gap: 8 },
