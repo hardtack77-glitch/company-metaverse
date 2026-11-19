@@ -68,6 +68,54 @@ export const PHOTO_ZONES = [
     photos: ["voice_wall_1.jpg", "voice_wall_2.jpg"], thumb: "voice_wall_thumb.jpg",
     text: "엘리베이터에서 화장실로 가는 통로에는 우리 상담사들의 밝은 모습을 담은 사진 갤러리 '표정있는 목소리'와 개인 통화를 할 수 있는 폰부스가 있어요.",
   })),
+  // 6층 심리상담실 (블렌더 X 1.8~6.8, Y -7.95~-1.0)
+  {
+    id: "psych_6f", floors: ["6F"], x: [1.8, 6.8], z: [1.0, 7.95], title: "심리상담실",
+    photo: "psych_6f.jpg", thumb: "psych_6f_thumb.jpg",
+    text: "전문 심리상담사가 상주하는 심리상담실이에요. 마음이 지칠 때 언제든 편하게 찾아와 이야기를 나눌 수 있어요.",
+  },
+  // 6층 안마치료실 (블렌더 X -8.4~-1.4, Y -7.9~-3.6)
+  {
+    id: "massage_6f", floors: ["6F"], x: [-8.4, -1.4], z: [3.6, 7.9], title: "안마치료실",
+    photo: "massage_6f.jpg", thumb: "massage_6f_thumb.jpg",
+    text: "전문 안마사에게 마사지를 받으며 뭉친 몸을 풀 수 있는 안마치료실이에요.",
+  },
+  // 1층 회전문 밖 광장 (블렌더 X -9.5~14, Y -14~-10)
+  {
+    id: "building_1f", floors: ["1F"], x: [-9.5, 14.0], z: [10.0, 14.0], title: "LG유플러스 대구고객센터",
+    photo: "building.jpg", thumb: "building_thumb.jpg",
+    text: "푸른 가로수길 옆에 자리한 LG유플러스 대구고객센터 건물이에요. 회전문으로 들어오면 로비와 안내데스크가 맞이해 드려요.",
+  },
+  // 1층 카페테리아 안쪽 (블렌더 X 7.8~13, Y -6.8~-1.2)
+  {
+    id: "cafe_1f", floors: ["1F"], x: [7.8, 13.0], z: [1.2, 6.8], title: "1층 카페테리아",
+    photos: ["cafe_1f_1.jpg", "cafe_1f_2.jpg"], thumb: "cafe_1f_thumb.jpg",
+    text: "커피머신과 전자레인지, 냉장고가 갖춰진 카페테리아예요. 혈압계와 인바디 측정기도 있어 쉬는 시간에 건강도 챙길 수 있어요.",
+  },
+  // 6~9층 출입구 들어오는 공간 (TV · 화분 벽) — 6층: 블렌더 X -1.4~1.8 / 7~9층: X -1.1~1.7, Y -8~-5
+  ...[
+    { id: "entrance_6f", floors: ["6F"], x: [-1.4, 1.8], z: [5.0, 8.0] },
+    { id: "entrance_789f", floors: ["7F", "8F", "9F"], x: [-1.1, 1.7], z: [5.0, 8.0] },
+  ].map((z) => ({
+    ...z, title: "상담실 출입구",
+    photo: "entrance.jpg", thumb: "entrance_thumb.jpg",
+    text: "출입구에 들어서면 따뜻한 나무 벽과 초록 화분, LG U+ TV가 맞아 주는 상담실 입구예요. 여기서부터 상담실이 시작돼요.",
+  })),
+  // 1층 교육장 복도 (교육 복도 X 0~9.4, Y 4.45~6.6 + 북측 강의장 복도 X 7.1~9.4, Y 6.6~18.8) — 같은 id 로 한 구역처럼
+  ...[
+    { x: [0, 9.4], z: [-6.6, -4.45] },
+    { x: [7.1, 9.4], z: [-18.8, -6.6] },
+  ].map((r) => ({
+    id: "training_corr_1f", floors: ["1F"], ...r, title: "교육장 복도",
+    photos: ["training_corr_2.jpg", "training_corr_1.jpg"], thumb: "training_corr_thumb.jpg",
+    text: "회의실과 강의장으로 이어지는 교육장 복도예요. 신입 상담사들이 이 복도를 따라 교육을 받으러 가요.",
+  })),
+  // 1층 로비 → 화장실 쪽 그린월 복도 (블렌더 X -4.3~0, Y -2.3~6.8 · 화장실 입구 포함)
+  {
+    id: "greenwall_1f", floors: ["1F"], x: [-4.3, 0], z: [-6.8, 2.3], title: "그린월 복도",
+    photos: ["greenwall_1.jpg", "greenwall_2.jpg"], thumb: "greenwall_thumb.jpg",
+    text: "로비에서 화장실로 이어지는 복도에는 싱그러운 수직정원(그린월)이 있어요. 지나가기만 해도 기분이 상쾌해져요.",
+  },
 ];
 
 export function zoneAt(floor, x, z) {

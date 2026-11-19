@@ -142,3 +142,7 @@ client/public/floor_7f.glb
 - 현재: 6층 수면실, 7·8·9층 수면실·휴게실·엘리베이터 홀·상담실(6장), 1층 엘리베이터 홀·북카페·탕비실·일반강의장1·사물함 (사진 `client/public/photos/`)
 - 구역 추가: 사진을 `client/public/photos/` 에 넣고 `client/src/photoZones.js` 의 `PHOTO_ZONES` 에 한 줄 추가 (층, 좌표 범위, 제목, 사진 파일, 문구)
 - 여러 장: `photos: ["a.jpg", "b.jpg"]` 로 적으면 스와이프·‹ › 단추로 넘겨 보기
+
+## 🚪 자동문
+- 6~9층 엘리베이터 홀 → 상담실 메인 출입문(`Main_LGU_Door_L/R`, 6층 `Main_Glass_Door_L/R`)은 사람이 2.1m 안으로 다가가면 좌우로 열리고, 멀어지면 닫힘
+- 나뿐 아니라 같은 층의 다른 직원이 다가가도 열림 (조절: App.jsx 의 `AUTO_DOOR_RANGE`, `AUTO_DOOR_SLIDE`)

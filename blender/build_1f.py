@@ -406,8 +406,7 @@ for i, x in enumerate([-8.7, -6.6, -4.5, -2.35, 1.25, 3.0, 4.5, 6.5, 8.5, 10.5, 
 box("Facade_Upper_Glass", -2.35, -10.03, 2.75, 1.25, -9.97, 4.2, M["glass"])
 box("Ceiling_Entrance_Canopy", -6, -13.2, 3.6, 4, -10, 3.8, M["steel"])
 box("Entrance_Sign_Panel", -3.4, -10.35, 2.45, 1.4, -10.2, 3.35, M["marble_wall"])
-cyl("Entrance_Sign_Logo_Circle", -2.5, -10.42, 2.55, 0.33, 0.05, M["magenta"], 32).rotation_euler.x = math.pi / 2
-T("Entrance_Sign_Text", "LG U+", -0.2, -10.42, 2.9, 2.9, 0.55, M["magenta"], "S", extrude=0.03)
+T("Entrance_Sign_Text", "LG U+", -1.0, -10.42, 2.85, 2.9, 0.55, M["magenta"], "S", extrude=0.03)  # 빨간 원 없이 로고 글자만
 for i in range(12):
     a = i / 12 * 2 * math.pi
     if abs(math.sin(a)) > 0.75:  # 남북 출입구는 비움
@@ -415,6 +414,9 @@ for i in range(12):
     cbox(f"Revolving_Door_Drum_Glass_{i + 1}", RX + 1.1 * math.cos(a), RY + 1.1 * math.sin(a), 0, 0.06, 0.58, 2.6,
          M["glass"], rot_z=a)
 cyl("Revolving_Door_Top_Ring", RX, RY, 2.6, 1.17, 0.25, M["steel"], 32)
+# 회전문 위 링 정면(남쪽·밖)과 안쪽(북쪽)에 안내데스크와 같은 LG U+ 로고
+T("Revolving_Door_Logo_Out", "LG U+", RX, RY - 1.2, 2.66, 0.95, 0.15, M["magenta"], "S", extrude=0.01)
+T("Revolving_Door_Logo_In", "LG U+", RX, RY + 1.2, 2.66, 0.95, 0.15, M["magenta"], "N", extrude=0.01)
 cyl("Revolving_Door_Center_Post", RX, RY, 0, 0.07, 2.6, M["steel"], 12)
 for i in range(4):
     cbox(f"Revolving_Door_Wing_{i + 1}", RX + 0.52 * math.cos(i * math.pi / 2 + 0.4),

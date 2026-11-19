@@ -71,6 +71,12 @@ const mapRootRef = { current: null };
 
 // 벽 충돌: 블렌더 맵에서 캐릭터 몸 높이(0.3~1.5m)에 걸치는 물체를 장애물로 사용
 const PLAYER_RADIUS = 0.28; // 캐릭터 몸 반지름(m)
+// 자동문: 6~9층 엘리베이터 홀 → 상담실 메인 출입문 (사람이 다가가면 좌우로 열림)
+const AUTO_DOOR = /^Main_(LGU|Glass)_Door_([LR])$|^Main_Door_Logo_([LR])/;
+const AUTO_DOOR_SLIDE = 0.82; // 한쪽 문이 옆으로 밀려나는 거리(m)
+const AUTO_DOOR_RANGE = 2.1; // 이 거리 안에 사람이 있으면 열림
+const LIVE_ME = new THREE.Vector3(9999, 0, 9999); // 내 위치 (자동문 감지용)
+const LIVE_OTHERS = new Map(); // 같은 층 다른 직원 위치
 const PASS_THROUGH = /door|ceiling|soffit|roof|천장/i; // 이 이름이 들어간 물체는 통과 (문은 지나다닐 수 있게)
 
 const MOVE_SPEED = 4; // m/s
@@ -154,6 +160,38 @@ function useAvailableMaps(floors) {
 
 function GlbMap({ url, onBounds, onColliders }) {
   const { scene } = useGLTF(url);
+  const doors = useRef({ list: [], center: null, open: 0 });
+  useFrame((_, dt) => {
+    const d = doors.current;
+    if (!d.center) return;
+    const near = (p) => Math.hypot(p.x - d.center.x, p.z - d.center.z) < AUTO_DOOR_RANGE;
+    let want = near(LIVE_ME) ? 1 : 0;
+    if (!want) for (const p of LIVE_OTHERS.values()) if (near(p)) want = 1;
+    const next = THREE.MathUtils.damp(d.open, want, want ? 5 : 3, dt);
+    if (Math.abs(next - d.open) < 1e-4) return;
+    d.open = next;
+    const e = next * next * (3 - 2 * next); // 부드럽게 (smoothstep)
+    for (const { obj, baseX, dir } of d.list) obj.position.x = baseX + dir * AUTO_DOOR_SLIDE * e;
+  });
+  useEffect(() => {
+    // 자동문 찾기 (왼쪽 문은 왼쪽(-X)으로, 오른쪽 문은 오른쪽(+X)으로)
+    const list = [];
+    const c = new THREE.Vector3();
+    let n = 0;
+    scene.traverse((o) => {
+      const m = AUTO_DOOR.exec(o.name || "");
+      if (!m) return;
+      if (o.userData.doorBaseX === undefined) o.userData.doorBaseX = o.position.x;
+      o.position.x = o.userData.doorBaseX;
+      list.push({ obj: o, baseX: o.userData.doorBaseX, dir: (m[2] || m[3]) === "L" ? -1 : 1 });
+      if (m[1]) {
+        c.x += o.userData.doorBaseX;
+        c.z += o.position.z;
+        n += 1;
+      }
+    });
+    doors.current = { list, center: n ? { x: (c.x / n) * MAP_SCALE + MAP_OFFSET[0], z: (c.z / n) * MAP_SCALE + MAP_OFFSET[2] } : null, open: 0 };
+  }, [scene]);
   useEffect(() => {
     scene.updateMatrixWorld(true);
     const floorBox = new THREE.Box3();
@@ -794,6 +832,7 @@ function MyAvatar({ me, inputRef, bubble, myPosRef, frozen, bounds, colliders, c
     }
     speedRef.current = THREE.MathUtils.lerp(speedRef.current, len > 0.05 ? Math.min(len, 1) : 0, Math.min(1, dt * 10));
     myPosRef.current.copy(g.position);
+    LIVE_ME.copy(g.position);
     if (import.meta.env.DEV) window.__cmPos = [+g.position.x.toFixed(2), +g.position.z.toFixed(2)]; // 개발용 위치 확인
 
     // 카메라
@@ -839,6 +878,7 @@ function OtherAvatar({ player, bubble }) {
   const target = useMemo(() => new THREE.Vector3(...player.position), []); // eslint-disable-line
   target.set(...player.position);
   const speedRef = useRef(0);
+  useEffect(() => () => LIVE_OTHERS.delete(player.id), [player.id]);
 
   useFrame((_, dt) => {
     const g = ref.current;
@@ -846,6 +886,7 @@ function OtherAvatar({ player, bubble }) {
     const gap = g.position.distanceTo(target);
     speedRef.current = THREE.MathUtils.lerp(speedRef.current, gap > 0.05 ? Math.min(gap * 3, 1) : 0, Math.min(1, dt * 8));
     g.position.lerp(target, Math.min(1, dt * 10)); // 부드럽게 보간
+    LIVE_OTHERS.set(player.id, g.position);
     g.rotation.y = lerpAngle(g.rotation.y, player.rotationY || 0, Math.min(1, dt * 10));
   });
 
