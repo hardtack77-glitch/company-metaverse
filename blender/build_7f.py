@@ -852,7 +852,48 @@ for i, x in enumerate([-12.2, -5.3]):
     cbox(f"North_White_2Door_Cab_{i + 1}", x, 14.85, 0, 1.05, 0.45, 1.1, M["white"])
     cyl(f"Air_Purifier_{i + 1}", x + 1.0, 14.85, 0, 0.18, 0.72, M["white"], 20)
     cyl(f"Air_Purifier_Top_{i + 1}", x + 1.0, 14.85, 0.72, 0.13, 0.03, M["ksqi_blue"], 20)
-T("North_Banner", "고객의 마음까지 상담합니다", -9.0, 15.66, 2.6, 5.0, 0.32, M["text_navy"], facing="S", fallback="EMPATHY CENTER")
+# 현수막 (사진): "전 산업군 1위 KSQI '고객감동콜센터' / 통신업계 1위 KS-CQI '최우수기업' 달성"
+#  이미지: blender/tex/ksqi_banner.jpg (make_banner.py 로 만듦) → GLB 안에 함께 들어감
+BANNER_CANDIDATES = [
+    r"C:\Users\User\company-metaverse\blender\tex\ksqi_banner.jpg",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else "", "tex", "ksqi_banner.jpg"),
+]
+
+
+def image_banner(name, path, cx, y, z1, w, h):
+    """남쪽(-Y)을 바라보는 그림 현수막 (y 위치의 벽 앞에 걸림)"""
+    mesh = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    vs = [bm.verts.new(v) for v in [(cx - w / 2, y, z1), (cx + w / 2, y, z1), (cx + w / 2, y, z1 + h), (cx - w / 2, y, z1 + h)]]
+    face = bm.faces.new(vs)
+    uv = bm.loops.layers.uv.new()
+    for loop, co in zip(face.loops, [(0, 0), (1, 0), (1, 1), (0, 1)]):
+        loop[uv].uv = co
+    bm.normal_update()
+    if face.normal.y > 0:
+        face.normal_flip()
+    bm.to_mesh(mesh)
+    bm.free()
+    m = bpy.data.materials.new(name + "_Mat")
+    m.use_nodes = True
+    nt = m.node_tree
+    bsdf = nt.nodes.get("Principled BSDF")
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = bpy.data.images.load(path)
+    nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+    bsdf.inputs["Roughness"].default_value = 0.85
+    mesh.materials.append(m)
+    obj = bpy.data.objects.new(name, mesh)
+    col.objects.link(obj)
+    return obj
+
+
+BANNER_PATH = next((p for p in BANNER_CANDIDATES if p and os.path.isfile(p)), None)
+if BANNER_PATH:
+    box("North_KSQI_Banner_Bar", -12.1, 15.62, 3.0, -5.9, 15.68, 3.04, M["frame_black"])  # 걸이 봉
+    image_banner("North_KSQI_Banner", BANNER_PATH, -9.0, 15.6, 1.62, 6.0, 1.4)
+else:
+    T("North_Banner", "전 산업군 1위 KSQI 고객감동콜센터", -9.0, 15.66, 2.6, 5.0, 0.32, M["text_navy"], facing="S", fallback="KSQI No.1")
 # 복도 쪽 낮은 칸막이 (화분 레일 · 철제 프레임) — 중앙 통로(4.1~6.5)는 비워 둠
 for i, (ya, yb) in enumerate([(-3.6, -1.4), (-0.4, 1.8), (2.8, 4.1), (6.5, 8.7), (9.7, 11.9), (12.9, 14.6)]):
     l, ly, hl = f"LowDiv_{i + 1}", (ya + yb) / 2, (yb - ya) / 2

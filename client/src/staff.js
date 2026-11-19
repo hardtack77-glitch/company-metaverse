@@ -326,7 +326,12 @@ export const RECRUIT_HELLOS = [
   "퇴근까지 조금만 더 힘내요! 응원합니다 💪",
 ];
 const RECRUITER_SPOTS = {
-  "1F": { position: [1.5, 0, 6.5], rotationY: 0 }, // 로비 (정문 쪽을 바라봄)
+  // 1층: 안내데스크와 동선이 겹치지 않게 그린월 복도 → 교육 복도 → 사물함 복도를 왕복하며 돌아다님
+  "1F": {
+    position: [-1.2, 0, 1.5],
+    rotationY: 0,
+    path: [[-1.2, 1.5], [-1.2, -5.5], [3.0, -5.5], [8.1, -5.5], [8.1, -1.0], [8.1, -5.5], [3.0, -5.5], [-1.2, -5.5]].map(([x, y]) => [x, 0, y]),
+  },
   "6F": { position: [-1.5, 0, 12.3], rotationY: Math.PI / 2 }, // 엘리베이터 홀 남서쪽 구석 (지나가는 길 비움)
   "7F": { position: [-3.0, 0, 9.8], rotationY: Math.PI / 2 }, // 엘리베이터 홀 옆 복도
   "8F": { position: [-3.0, 0, 9.8], rotationY: Math.PI / 2 },

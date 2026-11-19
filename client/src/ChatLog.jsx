@@ -91,7 +91,7 @@ export default function ChatLog({ lines, myId, floor }) {
 const S = {
   wrap: {
     position: "absolute", right: 10, bottom: "calc(62px + env(safe-area-inset-bottom))", width: "min(58vw, 300px)",
-    background: "rgba(0,0,0,.32)", borderRadius: 12, color: "#fff", fontSize: 12, zIndex: 4,
+    background: "rgba(0,0,0,.32)", borderRadius: 12, color: "#fff", fontSize: 12, zIndex: 12,
     textShadow: "0 1px 2px rgba(0,0,0,.8)", backdropFilter: "blur(1px)",
   },
   head: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 8px 0 10px", fontSize: 11, opacity: 0.85 },
@@ -102,6 +102,6 @@ const S = {
   btns: { display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "2px 4px 6px 0" },
   arrow: { width: 28, height: 28, borderRadius: 8, border: 0, background: "rgba(255,255,255,.25)", color: "#fff", fontSize: 12, touchAction: "manipulation" },
   fold: { border: 0, background: "rgba(255,255,255,.2)", color: "#fff", borderRadius: 999, fontSize: 11, padding: "2px 8px" },
-  foldOnly: { position: "absolute", right: 10, bottom: "calc(66px + env(safe-area-inset-bottom))", fontSize: 13, padding: "6px 12px", background: "rgba(0,0,0,.45)", zIndex: 4 },
+  foldOnly: { position: "absolute", right: 10, bottom: "calc(66px + env(safe-area-inset-bottom))", fontSize: 13, padding: "6px 12px", background: "rgba(0,0,0,.45)", zIndex: 12 },
   newMsg: { position: "absolute", left: "50%", bottom: 8, transform: "translateX(-50%)", border: 0, borderRadius: 999, background: "#e6007e", color: "#fff", fontSize: 11, padding: "3px 10px" },
 };
