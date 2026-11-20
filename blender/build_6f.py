@@ -868,9 +868,7 @@ for i in range(5):
     box(f"Office1_Window_Blind_{i}", 7.48, 1.3 + i * 1.8, 0.9, 7.52, 2.9 + i * 1.8, 3.0, M["roller"])
 box("Office1_Low_Cabinet", 7.32, 2.6, 0, 7.52, 10.2, 0.7, M["wood_light"])
 # 입구 화분 칸막이 (메시 + 나무 화분함)
-box("Front_Planter_Box", -0.65, 2.85, 0, 0.2, 3.15, 0.9, M["wood_light"])
-for k, x in enumerate((-0.45, -0.05)):
-    pothos(f"Front_Planter_Plant_{k}", x, 3.0, 0.9, 1.1)
+# (왼쪽 끝 나무 화분함은 삭제 → 벽 쪽 통로로 바로 들어갈 수 있게)
 box("Front_Mesh_Divider", 0.2, 2.95, 0, 1.5, 3.05, 1.1, M["mesh_black"])
 box("Front_Mesh_TopWood", 0.15, 2.86, 1.1, 1.55, 3.14, 1.14, M["wood_light"])
 for k, x in enumerate((0.5, 1.2)):
