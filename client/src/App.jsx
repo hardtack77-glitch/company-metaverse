@@ -4,7 +4,7 @@ import React, { Component, Suspense, createContext, useContext, useEffect, useMe
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
-import { socket, connectAs, claimTreasure, changeFloor, submitDart, sendMove, rememberPose, signup, login, checkSession, logout, getToken } from "./socket.js";
+import { socket, connectAs, claimTreasure, changeFloor, submitDart, sendMove, rememberPose, signup, login, checkSession, logout, getToken, sendAction } from "./socket.js";
 import { openExternal, shouldAutoResume, clearResume } from "./openLink.js";
 import DartGame from "./DartGame.jsx";
 import NpcMessage from "./NpcMessage.jsx";
@@ -12,6 +12,7 @@ import ChatLog from "./ChatLog.jsx";
 import Inbox from "./Inbox.jsx";
 import PhotoSpot from "./PhotoSpot.jsx";
 import { zoneAt } from "./photoZones.js";
+import { ACTIONS, ACTION_MAP, startAction, cancelAction, actionState, actionPose, onAction, PLANE_RELEASE } from "./actions.js";
 import { STAFF_NPCS, COUNSEL_FLOORS, seatedWorkers, RECRUITERS, RECRUIT_LINKS, RECRUIT_GREETING, RECRUIT_HELLOS } from "./staff.js";
 import SeatedCrowd from "./SeatedCrowd.jsx";
 
@@ -89,6 +90,8 @@ const REVOLVING_POST = /^Revolving_Door_Center_Post/;
 const REVOLVING_RANGE = 1.5; // 회전문 가운데에서 이 거리 안이면 회전
 const LIVE_ME = new THREE.Vector3(9999, 0, 9999); // 내 위치 (자동문 감지용)
 const LIVE_OTHERS = new Map(); // 같은 층 다른 직원 위치
+const LIVE_ME_ROT = { y: 0 }; // 내 몸 방향 (종이비행기 날리는 방향)
+const LIVE_ROT = new Map(); // 다른 직원 몸 방향
 const PASS_THROUGH = /door|ceiling|soffit|roof|천장/i; // 이 이름이 들어간 물체는 통과 (문은 지나다닐 수 있게)
 
 const MOVE_SPEED = 4; // m/s
@@ -621,7 +624,7 @@ const LabelScaleContext = createContext(10);
 const CharsContext = createContext(false);
 
 // 블렌더 characters.glb 캐릭터: Hip_L/R, Shoulder_L/R 관절을 흔들어 걷기 동작
-function GlbCharacter({ model = PLAYER_MODEL, outfit, speedRef, pose }) {
+function GlbCharacter({ model = PLAYER_MODEL, outfit, speedRef, pose, actorId }) {
   const { scene } = useGLTF(CHAR_URL);
   const { object, limbs } = useMemo(() => {
     const src = scene.getObjectByName(model) || scene.getObjectByName(PLAYER_MODEL);
@@ -640,13 +643,16 @@ function GlbCharacter({ model = PLAYER_MODEL, outfit, speedRef, pose }) {
     const find = (re) => {
       let hit = null;
       object.traverse((o) => !hit && re.test(o.name) && (hit = o));
-      return hit ? { node: hit, base: hit.rotation.x } : null;
+      return hit
+        ? { node: hit, base: hit.rotation.x, baseZ: hit.rotation.z, baseY: hit.position.y, baseRY: hit.rotation.y, side: Math.sign(hit.position.x) || 1 }
+        : null;
     };
     return {
       object,
       limbs: {
         hipL: find(/_Hip_L$/), hipR: find(/_Hip_R$/),
         shL: find(/_Shoulder_L$/), shR: find(/_Shoulder_R$/),
+        torso: find(/_Torso$/),
       },
     };
   }, [scene, model, outfit]);
@@ -667,11 +673,27 @@ function GlbCharacter({ model = PLAYER_MODEL, outfit, speedRef, pose }) {
     const sp = speedRef.current;
     phase.current += dt * 9 * Math.max(sp, 0.001);
     const swing = Math.sin(phase.current) * 0.6 * sp;
+    // 동작(손 흔들기·춤 등) — 걷기 시작하면 멈춤
+    let st = actionState(actorId);
+    if (st && sp > 0.35) {
+      cancelAction(actorId);
+      st = null;
+    }
+    const p = st ? actionPose(st.type, st.t, st.sec) : null;
     const set = (l, v) => l && (l.node.rotation.x = l.base + v);
-    set(limbs.hipL, -swing);
-    set(limbs.hipR, swing);
-    set(limbs.shL, swing);
-    set(limbs.shR, -swing);
+    const arm = (l, v, a) => {
+      if (!l) return;
+      l.node.rotation.x = l.base + v + (a ? a.x : 0);
+      l.node.rotation.z = l.baseZ + (a ? a.z * l.side : 0);
+    };
+    set(limbs.hipL, -swing + (p ? p.hipL : 0));
+    set(limbs.hipR, swing + (p ? p.hipR : 0));
+    arm(limbs.shL, swing * (p ? 1 - p.k : 1), p && p.shL);
+    arm(limbs.shR, -swing * (p ? 1 - p.k : 1), p && p.shR);
+    if (limbs.torso) {
+      limbs.torso.node.position.y = limbs.torso.baseY + (p ? p.bounce : 0);
+      limbs.torso.node.rotation.y = limbs.torso.baseRY + (p ? p.twist : 0);
+    }
   });
   return <primitive object={object} />;
 }
@@ -689,21 +711,22 @@ class CharBoundary extends Component {
   }
 }
 
-function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, model, hideLabel, pose }) {
+function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, model, hideLabel, pose, actorId }) {
   const charsOk = useContext(CharsContext);
   const labelScale = useContext(LabelScaleContext);
-  const procedural = <ProceduralBody speedRef={speedRef} outfit={outfit || CARDIGAN} />;
+  const procedural = <ProceduralBody speedRef={speedRef} outfit={outfit || CARDIGAN} actorId={actorId} />;
   return (
     <group>
       {charsOk ? (
         <CharBoundary fallback={procedural}>
           <Suspense fallback={procedural}>
-            <GlbCharacter model={model} outfit={outfit} speedRef={speedRef} pose={pose} />
+            <GlbCharacter model={model} outfit={outfit} speedRef={speedRef} pose={pose} actorId={actorId} />
           </Suspense>
         </CharBoundary>
       ) : (
         procedural
       )}
+      {actorId && <ActionEmoji actorId={actorId} />}
       {!hideLabel && (
       <Html position-y={1.8} center distanceFactor={labelScale} zIndexRange={[10, 0]}>
         <div style={{ ...styles.labelWrap, transform: "translateY(-50%)" /* 이름표 아래쪽이 머리 위에 오도록 */ }}>
@@ -720,18 +743,22 @@ function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, mod
 }
 
 // characters.glb 가 없을 때 쓰는 기본 도형 캐릭터
-function ProceduralBody({ speedRef, outfit }) {
+function ProceduralBody({ speedRef, outfit, actorId }) {
   const lArm = useRef(), rArm = useRef(), lLeg = useRef(), rLeg = useRef();
   const phase = useRef(0);
   useFrame((_, dt) => {
     const sp = speedRef.current; // 0 ~ 1
     phase.current += dt * 9 * Math.max(sp, 0.001);
     const swing = Math.sin(phase.current) * 0.7 * sp;
+    const st = sp > 0.35 ? null : actionState(actorId);
+    const p = st ? actionPose(st.type, st.t, st.sec) : null;
     if (lArm.current) {
-      lArm.current.rotation.x = swing;
-      rArm.current.rotation.x = -swing;
-      lLeg.current.rotation.x = -swing;
-      rLeg.current.rotation.x = swing;
+      lArm.current.rotation.x = swing + (p ? p.shL.x : 0);
+      lArm.current.rotation.z = p ? -p.shL.z : 0;
+      rArm.current.rotation.x = -swing + (p ? p.shR.x : 0);
+      rArm.current.rotation.z = p ? p.shR.z : 0;
+      lLeg.current.rotation.x = -swing + (p ? p.hipL : 0);
+      rLeg.current.rotation.x = swing + (p ? p.hipR : 0);
     }
   });
 
@@ -888,6 +915,7 @@ function MyAvatar({ me, inputRef, bubble, myPosRef, frozen, bounds, colliders, c
     speedRef.current = THREE.MathUtils.lerp(speedRef.current, len > 0.05 ? Math.min(len, 1) : 0, Math.min(1, dt * 10));
     myPosRef.current.copy(g.position);
     LIVE_ME.copy(g.position);
+    LIVE_ME_ROT.y = g.rotation.y;
     if (import.meta.env.DEV) window.__cmPos = [+g.position.x.toFixed(2), +g.position.z.toFixed(2)]; // 개발용 위치 확인
 
     // 카메라
@@ -923,7 +951,7 @@ function MyAvatar({ me, inputRef, bubble, myPosRef, frozen, bounds, colliders, c
   return (
     <group ref={ref} position={me.position}>
       {/* 1인칭에서는 내 몸이 카메라를 가리지 않도록 숨김 */}
-      {!CAMERA_MODES[camMode]?.firstPerson && <AvatarBody name={me.guest ? `${me.name} (방문자)` : me.name} bubble={bubble} isMe speedRef={speedRef} model={lookModel(me.look)} outfit={me.look?.outfit} />}
+      {!CAMERA_MODES[camMode]?.firstPerson && <AvatarBody name={me.guest ? `${me.name} (방문자)` : me.name} bubble={bubble} isMe speedRef={speedRef} model={lookModel(me.look)} outfit={me.look?.outfit} actorId={me.id} />}
     </group>
   );
 }
@@ -933,7 +961,13 @@ function OtherAvatar({ player, bubble }) {
   const target = useMemo(() => new THREE.Vector3(...player.position), []); // eslint-disable-line
   target.set(...player.position);
   const speedRef = useRef(0);
-  useEffect(() => () => LIVE_OTHERS.delete(player.id), [player.id]);
+  useEffect(
+    () => () => {
+      LIVE_OTHERS.delete(player.id);
+      LIVE_ROT.delete(player.id);
+    },
+    [player.id]
+  );
 
   useFrame((_, dt) => {
     const g = ref.current;
@@ -943,11 +977,13 @@ function OtherAvatar({ player, bubble }) {
     g.position.lerp(target, Math.min(1, dt * 10)); // 부드럽게 보간
     LIVE_OTHERS.set(player.id, g.position);
     g.rotation.y = lerpAngle(g.rotation.y, player.rotationY || 0, Math.min(1, dt * 10));
+    LIVE_ROT.set(player.id, g.rotation.y);
   });
 
   return (
     <group ref={ref} position={player.position}>
       <AvatarBody
+        actorId={player.id}
         tagColor={player.color}
         name={player.guest ? `${player.name} (방문자)` : player.name}
         bubble={bubble}
@@ -957,6 +993,100 @@ function OtherAvatar({ player, bubble }) {
       />
     </group>
   );
+}
+
+/* ───────────── 동작: 머리 위 이모지 · 종이비행기 ───────────── */
+
+// 동작 중일 때 머리 위에 이모지가 떠오름 (리렌더 없이 매 프레임 스타일만 바꿈)
+function ActionEmoji({ actorId }) {
+  const el = useRef();
+  const last = useRef("");
+  useFrame(() => {
+    const d = el.current;
+    if (!d) return;
+    const st = actionState(actorId);
+    if (!st) {
+      if (last.current) {
+        d.style.opacity = 0;
+        last.current = "";
+      }
+      return;
+    }
+    const emoji = ACTION_MAP[st.type].emoji;
+    if (last.current !== emoji) d.textContent = last.current = emoji;
+    const fade = Math.min(1, st.t / 0.12, (1 - st.t) / 0.25);
+    d.style.opacity = Math.max(0, fade);
+    d.style.transform = `translateY(${-st.t * 26}px) scale(${0.8 + Math.min(1, st.t * 5) * 0.4})`;
+  });
+  return (
+    <Html position-y={2.55} center zIndexRange={[9, 0]} style={{ pointerEvents: "none" }}>
+      <div ref={el} style={{ fontSize: 30, opacity: 0, textShadow: "0 2px 6px rgba(0,0,0,.35)", transition: "none" }} />
+    </Html>
+  );
+}
+
+// 종이비행기: 동작이 시작되고 손을 떠나는 순간, 그 사람 앞으로 날아감 (약 3초 뒤 사라짐)
+const PLANE_GEO = (() => {
+  const g = new THREE.BufferGeometry();
+  // 코(+z) · 왼날개 · 오른날개 · 아래 용골
+  const v = [0, 0, 0.2, -0.15, 0.01, -0.13, 0, 0.02, -0.11, 0, 0, 0.2, 0, 0.02, -0.11, 0.15, 0.01, -0.13, 0, 0, 0.2, 0, -0.05, -0.12, 0, 0.02, -0.11];
+  g.setAttribute("position", new THREE.Float32BufferAttribute(v, 3));
+  g.computeVertexNormals();
+  return g;
+})();
+const PLANE_MAT = new THREE.MeshStandardMaterial({ color: "#ffffff", side: THREE.DoubleSide, roughness: 0.6 });
+const PLANE_LIFE = 3.0;
+
+function PaperPlanes({ myId }) {
+  const group = useRef();
+  const pending = useRef([]); // { actorId, at }
+  const planes = useRef([]); // { mesh, born, pos, dir }
+  useEffect(
+    () =>
+      onAction((actorId, type) => {
+        if (type === "plane") pending.current.push({ actorId, at: performance.now() / 1000 + PLANE_RELEASE });
+      }),
+    []
+  );
+  useFrame((_, dt) => {
+    const t = performance.now() / 1000;
+    pending.current = pending.current.filter((p) => {
+      if (t < p.at) return true;
+      const pos = p.actorId === myId ? LIVE_ME : LIVE_OTHERS.get(p.actorId);
+      const ry = p.actorId === myId ? LIVE_ME_ROT.y : LIVE_ROT.get(p.actorId);
+      if (!pos || ry === undefined || !group.current) return false;
+      const dir = new THREE.Vector3(Math.sin(ry), 0, Math.cos(ry));
+      const mesh = new THREE.Mesh(PLANE_GEO, PLANE_MAT);
+      mesh.castShadow = true;
+      const start = pos.clone().addScaledVector(dir, 0.35);
+      start.y = 1.6;
+      mesh.position.copy(start);
+      group.current.add(mesh);
+      planes.current.push({ mesh, born: t, start, dir, ry, sway: Math.random() * 6 });
+      if (planes.current.length > 12) {
+        const old = planes.current.shift();
+        group.current.remove(old.mesh);
+      }
+      return false;
+    });
+    planes.current = planes.current.filter((pl) => {
+      const age = t - pl.born;
+      if (age > PLANE_LIFE) {
+        group.current?.remove(pl.mesh);
+        return false;
+      }
+      const dist = 3.2 * age - 0.25 * age * age; // 점점 느려짐
+      const side = Math.sin(age * 2.2 + pl.sway) * 0.35 * age; // 살랑살랑 옆으로
+      pl.mesh.position.set(
+        pl.start.x + pl.dir.x * dist + Math.cos(pl.ry) * side,
+        Math.max(0.05, pl.start.y + 0.35 * Math.sin(Math.min(age, 1.2) * 2.2) - 0.32 * age * age * 0.5),
+        pl.start.z + pl.dir.z * dist - Math.sin(pl.ry) * side
+      );
+      pl.mesh.rotation.set(-0.15 + age * 0.12, pl.ry + Math.sin(age * 2.2 + pl.sway) * 0.35, Math.sin(age * 2.2 + pl.sway) * 0.5);
+      return true;
+    });
+  });
+  return <group ref={group} />;
 }
 
 function lerpAngle(a, b, t) {
@@ -1107,6 +1237,9 @@ export default function App() {
   const [inboxUnread, setInboxUnread] = useState(0);
   const [photoZone, setPhotoZone] = useState(null); // 지금 서 있는 사진 구역
   const [photoOpen, setPhotoOpen] = useState(false);
+  const [emoteOpen, setEmoteOpen] = useState(false); // 동작 고르기 창
+  const lastEmote = useRef(0);
+  const highfive = useRef({}); // id → 하이파이브 시각 (둘이 동시에 하면 성공)
   const helloIdx = useRef(Math.floor(Math.random() * RECRUIT_HELLOS.length));
   const [busy, setBusy] = useState(false); // 서버 응답 대기 중
   const [spawnSeq, setSpawnSeq] = useState(0); // 층 이동 시 내 아바타를 새 위치에 다시 배치
@@ -1209,7 +1342,10 @@ export default function App() {
       showToast(`📬 ${npcName}의 답장이 도착했어요! (내 메시지함)`);
     };
     socket.on("inboxNew", onInboxNew);
+    const onRemoteAction = ({ id, type }) => startAction(id, type);
+    socket.on("action", onRemoteAction);
     return () => {
+      socket.off("action", onRemoteAction);
       socket.off("inboxNew", onInboxNew);
       socket.off("dartNews", onDartNews);
       socket.off("connect", onConnect);
@@ -1392,6 +1528,37 @@ export default function App() {
     }, 400);
     return () => clearInterval(t);
   }, [me?.floor, !!me]); // eslint-disable-line
+
+  // 동작 버튼 → 내 캐릭터가 바로 동작하고, 서버로 동작 이름만 보내서 같은 층 사람들 화면에도 보임
+  const doEmote = (type) => {
+    if (!me) return;
+    const t = performance.now();
+    if (t - lastEmote.current < 800) return; // 연타 방지
+    lastEmote.current = t;
+    startAction(me.id, type);
+    sendAction(type);
+    setEmoteOpen(false);
+  };
+  // 하이파이브: 가까이(2m) 있는 두 사람이 2.5초 안에 같이 하면 성공 알림
+  useEffect(() => {
+    if (!me) return;
+    return onAction((id, type) => {
+      if (type !== "highfive") return;
+      const t = performance.now() / 1000;
+      highfive.current[id] = t;
+      const mine = highfive.current[me.id];
+      if (!mine || t - mine > 2.5) return;
+      for (const [oid, ot] of Object.entries(highfive.current)) {
+        if (oid === me.id || t - ot > 2.5) continue;
+        const p = LIVE_OTHERS.get(oid);
+        if (p && Math.hypot(p.x - LIVE_ME.x, p.z - LIVE_ME.z) < 2.0) {
+          showToast(`🙌 ${others[oid]?.name || "동료"}님과 하이파이브!`);
+          highfive.current = {};
+          return;
+        }
+      }
+    });
+  }, [me?.id, others]); // eslint-disable-line
 
   const enter = (e) => {
     e.preventDefault();
@@ -1599,6 +1766,7 @@ export default function App() {
         {Object.values(others).map((p) => (
           <OtherAvatar key={p.id} player={p} bubble={bubbles[p.id]} />
         ))}
+        <PaperPlanes myId={me.id} />
         </LabelScaleContext.Provider>
         </CharsContext.Provider>
       </Canvas>
@@ -1637,6 +1805,25 @@ export default function App() {
         📬 메시지함
         {inboxUnread > 0 && <span style={styles.badge}>{inboxUnread}</span>}
       </button>
+      {!modalOpen && (
+        <>
+          <button style={{ ...styles.emoteBtn, ...(emoteOpen ? styles.emoteBtnOn : null) }} onClick={() => setEmoteOpen((v) => !v)} aria-label="동작">
+            {emoteOpen ? "✕" : "😊"}
+            <span style={styles.emoteBtnLabel}>동작</span>
+          </button>
+          {emoteOpen && (
+            <div style={styles.emoteBar}>
+              {ACTIONS.map((a) => (
+                <button key={a.id} style={styles.emoteItem} onClick={() => doEmote(a.id)}>
+                  <span style={{ fontSize: 24 }}>{a.emoji}</span>
+                  <span style={{ fontSize: 10 }}>{a.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
       <PhotoSpot zone={photoZone} open={photoOpen} setOpen={setPhotoOpen} />
       {inboxOpen && <Inbox onClose={() => setInboxOpen(false)} onRead={() => setInboxUnread(0)} />}
 
@@ -1778,6 +1965,11 @@ const styles = {
   linkBtn: { marginTop: 10, background: "transparent", border: 0, color: "#6b7280", fontSize: 13, textDecoration: "underline" },
   topBar: { position: "absolute", top: "max(12px, env(safe-area-inset-top))", left: 12, padding: "6px 12px", borderRadius: 999, background: "rgba(0,0,0,.55)", color: "#fff", fontSize: 13, display: "flex", alignItems: "center", gap: 6, zIndex: 12 },
   dot: { width: 8, height: 8, borderRadius: "50%", display: "inline-block" },
+  emoteBtn: { position: "absolute", left: 24, bottom: "calc(216px + env(safe-area-inset-bottom))", width: 58, height: 58, borderRadius: "50%", border: "2px solid #fff", background: "rgba(17,24,39,.6)", color: "#fff", fontSize: 24, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1, zIndex: 12, boxShadow: "0 3px 10px rgba(0,0,0,.3)" },
+  emoteBtnOn: { background: "#e6007e" },
+  emoteBtnLabel: { fontSize: 10, marginTop: 2, fontWeight: 700 },
+  emoteBar: { position: "absolute", left: 92, bottom: "calc(208px + env(safe-area-inset-bottom))", display: "grid", gridTemplateColumns: "repeat(3, 60px)", gap: 6, padding: 8, borderRadius: 14, background: "rgba(17,24,39,.78)", zIndex: 13, boxShadow: "0 6px 16px rgba(0,0,0,.35)" },
+  emoteItem: { height: 56, border: 0, borderRadius: 10, background: "rgba(255,255,255,.12)", color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, touchAction: "manipulation" },
   joyBase: { position: "absolute", left: 24, bottom: "calc(84px + env(safe-area-inset-bottom))", width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,.25)", border: "2px solid rgba(255,255,255,.6)", display: "grid", placeItems: "center", touchAction: "none", zIndex: 12 },
   joyKnob: { width: 52, height: 52, borderRadius: "50%", background: "rgba(255,255,255,.9)", boxShadow: "0 2px 8px rgba(0,0,0,.3)", pointerEvents: "none" },
   chatBar: { position: "absolute", left: 12, right: 12, bottom: "max(12px, env(safe-area-inset-bottom))", display: "flex", gap: 8, zIndex: 12 },

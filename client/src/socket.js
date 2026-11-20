@@ -115,6 +115,8 @@ export const submitDart = (score) =>
 // NPC 에게 메시지 남기기 / 공개 메시지 보기 → { ok, messages: [{ from, text, at }] }
 export const sendNpcMessage = (payload) =>
   request("npcMessage", payload, { ok: false, message: "서버 응답이 없어요. 잠시 후 다시 시도해 주세요." });
+// 동작(손 흔들기·춤 등) — 동작 이름만 보냄
+export const sendAction = (type) => socket.connected && socket.emit("action", type);
 export const getMyMessages = () => request("myMessages", null, { ok: false, items: [] });
 export const getNpcMessages = (npcId) => request("npcMessages", npcId, { ok: false, messages: [] });
 

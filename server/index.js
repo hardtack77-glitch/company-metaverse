@@ -507,6 +507,17 @@ io.on("connection", (socket) => {
     if (typeof ack === "function") ack({ ok: true, messages: publicMessages(clean(npcId, 64)) });
   });
 
+  // 3-1) 동작(손 흔들기·하이파이브·박수·엄지척·춤·종이비행기) → 같은 층 다른 사람에게 이름만 전달
+  const ACTION_TYPES = new Set(["wave", "highfive", "clap", "thumbs", "dance", "plane"]);
+  let lastAction = 0;
+  socket.on("action", (type) => {
+    const p = players.get(socket.id);
+    const now = Date.now();
+    if (!p || !ACTION_TYPES.has(type) || now - lastAction < 600) return; // 연타 방지
+    lastAction = now;
+    socket.to(p.floor).emit("action", { id: socket.id, type });
+  });
+
   // 4) 채팅 → 같은 층
   socket.on("chat", (text) => {
     const p = players.get(socket.id);
