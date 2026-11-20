@@ -760,9 +760,13 @@ wall("LeftTurn_West_Wall", -9.7, 0.2, -9.7, 2.9, M["panel_white"])
 exit_sign("West_Exit_Sign", -9.66, 1.6, 2.55, "E")
 # 북쪽 벽 + LG U+ 자동문 (사무실2)
 wall("Left_Turn_Wall_N", -9.7, 2.9, -0.7, 2.9, M["panel_white"], openings=[(4.3, 5.4, 2.6)])
-box("Push_Auto_Door", -5.4, 2.87, 0, -4.3, 2.93, 2.6, M["glass"])  # 문(통과 가능)
-T("Auto_Door_Logo", "LG U+", -4.85, 2.84, 1.4, 0.45, 0.11, M["text_red"], facing="S")
-box("Door_Warning_Sticker", -4.5, 2.83, 1.0, -4.3, 2.84, 1.25, M["text_red"])
+# 자동문 2짝 (게임에서 다가가면 좌우로 열림: 이름 AutoDoor_Office2_*)
+box("AutoDoor_Office2_L", -5.4, 2.87, 0, -4.85, 2.93, 2.6, M["glass"])
+box("AutoDoor_Office2_R", -4.85, 2.87, 0, -4.3, 2.93, 2.6, M["glass"])
+for side, xc in (("L", -5.12), ("R", -4.58)):
+    T(f"AutoDoorLogo_Office2_{side}_S", "LG U+", xc, 2.845, 1.4, 0.4, 0.1, M["text_red"], facing="S")
+    T(f"AutoDoorLogo_Office2_{side}_N", "LG U+", xc, 2.955, 1.4, 0.4, 0.1, M["text_red"], facing="N")
+box("AutoDoorLogo_Office2_R_Sticker", -4.5, 2.83, 1.0, -4.35, 2.84, 1.25, M["text_red"])
 cbox("Door_Push_Switch", -3.35, 2.8, 1.0, 0.1, 0.03, 0.15, M["steel"])
 dracaena("LeftTurn_Plant", -3.0, 2.55, 1.4)
 
@@ -895,6 +899,7 @@ plant("Office1_Corner_Plant", 7.1, 10.0, 1.4)
 # =====================================================================
 wall("Office2_North_Wall", -9.6, 16.0, -0.7, 16.0, M["wall_white"])
 wall("Office2_West_Wall", -9.6, 2.9, -9.6, 16.0, M["wall_white"])
+wall("Office2_East_Wall", -0.7, 10.4, -0.7, 16.0, M["wall_white"])  # 사무실1 북쪽 벽 너머가 뚫려 있던 곳 막음
 box("Office2_Roller_Blind", -9.52, 3.5, 0.9, -9.48, 9.2, 2.9, M["roller"])
 for i in range(4):  # 흰 낮은 수납장 + 화분 (동쪽 벽)
     y = 3.6 + i * 1.3

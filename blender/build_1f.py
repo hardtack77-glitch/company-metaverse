@@ -637,11 +637,50 @@ cbox("Lounge_Red_Santa_Stocking", 6.6, 3.66, 1.55, 0.22, 0.05, 0.36, M["red_leat
 for i, (x, z) in enumerate([(2.0, 1.12), (4.15, 0.64), (5.6, 1.6)]):
     leaf_ball(f"Lounge_Shelf_Plant_{i + 1}", x, 3.45, z + 0.12, 0.12, M["plant"])
 # KSQI 현수막 (영상) — 책장 위
-box("Lounge_KSQI_Banner", 1.5, 3.25, 2.55, 6.1, 3.3, 2.94, M["banner_white"])
-T("Lounge_KSQI_Banner_Line1", "전 산업군 1위 KSQI '고객감동콜센터'", 3.8, 3.22, 2.83, 4.3, 0.15, M["text_red"], "S",
-  fallback="KSQI No.1 Customer Center")
-T("Lounge_KSQI_Banner_Line2", "통신업계 1위 KS-CQI '최우수기업' 달성", 3.8, 3.22, 2.65, 4.3, 0.15, M["text_navy"], "S",
-  fallback="KS-CQI Best Company")
+# 7·8·9층 상담실과 같은 그림 현수막 (blender/tex/ksqi_banner.jpg) — 원목 루버 천장 바로 아래, 책장 위쪽
+BANNER_CANDIDATES = [
+    r"C:\Users\User\company-metaverse\blender\tex\ksqi_banner.jpg",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else "", "tex", "ksqi_banner.jpg"),
+]
+BANNER_PATH = next((p for p in BANNER_CANDIDATES if p and os.path.isfile(p)), None)
+
+
+def image_banner(name, path, cx, y, z1, w, h):
+    """남쪽(-Y)을 바라보는 그림 현수막"""
+    mesh = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    vs = [bm.verts.new(v) for v in [(cx - w / 2, y, z1), (cx + w / 2, y, z1), (cx + w / 2, y, z1 + h), (cx - w / 2, y, z1 + h)]]
+    face = bm.faces.new(vs)
+    uv = bm.loops.layers.uv.new()
+    for loop, co in zip(face.loops, [(0, 0), (1, 0), (1, 1), (0, 1)]):
+        loop[uv].uv = co
+    bm.normal_update()
+    if face.normal.y > 0:
+        face.normal_flip()
+    bm.to_mesh(mesh)
+    bm.free()
+    m = bpy.data.materials.new(name + "_Mat")
+    m.use_nodes = True
+    nt = m.node_tree
+    bsdf = nt.nodes.get("Principled BSDF")
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = bpy.data.images.load(path)
+    nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+    bsdf.inputs["Roughness"].default_value = 0.85
+    mesh.materials.append(m)
+    obj = bpy.data.objects.new(name, mesh)
+    col.objects.link(obj)
+    return obj
+
+
+if BANNER_PATH:
+    image_banner("Lounge_KSQI_Banner", BANNER_PATH, 3.8, 3.22, 1.92, 4.33, 1.01)
+else:
+    box("Lounge_KSQI_Banner", 1.5, 3.25, 2.55, 6.1, 3.3, 2.94, M["banner_white"])
+    T("Lounge_KSQI_Banner_Line1", "전 산업군 1위 KSQI '고객감동콜센터'", 3.8, 3.22, 2.83, 4.3, 0.15, M["text_red"], "S",
+      fallback="KSQI No.1 Customer Center")
+    T("Lounge_KSQI_Banner_Line2", "통신업계 1위 KS-CQI '최우수기업' 달성", 3.8, 3.22, 2.65, 4.3, 0.15, M["text_navy"], "S",
+      fallback="KS-CQI Best Company")
 # 엠보싱 가죽 스툴 세트 (사진 5 배치)
 cbox("Lounge_Cube_White_Back", 2.2, 2.35, 0, 0.5, 0.5, 0.44, M["white"])
 cbox("Lounge_Bench_Black_Left", 2.7, 1.35, 0, 0.6, 1.75, 0.44, M["charcoal"])
