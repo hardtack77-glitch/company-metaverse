@@ -176,3 +176,10 @@ export async function checkSession() {
   return res;
 }
 export const logout = () => setToken("");
+
+// 🛒 아이템 상점 (회원 전용)
+const SHOP_FAIL = { ok: false, message: "서버 응답이 없어요. 다시 시도해 주세요." };
+export const shopInfo = () => request("shopInfo", null, SHOP_FAIL);
+export const buyItem = (id) => request("buyItem", id, SHOP_FAIL);
+export const sellItem = (id) => request("sellItem", id, SHOP_FAIL);
+export const useItem = (id) => request("useItem", id, SHOP_FAIL);

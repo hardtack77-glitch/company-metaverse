@@ -4,6 +4,8 @@ import React, { Component, Suspense, createContext, useContext, useEffect, useMe
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
+import Shop from "./Shop.jsx";
+import { shopInfo } from "./socket.js";
 import { socket, connectAs, claimTreasure, changeFloor, submitDart, sendMove, rememberPose, signup, login, checkSession, logout, getToken, sendAction } from "./socket.js";
 import { openExternal, shouldAutoResume, clearResume } from "./openLink.js";
 import DartGame from "./DartGame.jsx";
@@ -719,7 +721,7 @@ class CharBoundary extends Component {
   }
 }
 
-function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, model, hideLabel, pose, actorId }) {
+function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, model, hideLabel, pose, actorId, equipped, coffee, aura }) {
   const charsOk = useContext(CharsContext);
   const labelScale = useContext(LabelScaleContext);
   const procedural = <ProceduralBody speedRef={speedRef} outfit={outfit || CARDIGAN} actorId={actorId} />;
@@ -735,10 +737,12 @@ function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, mod
         procedural
       )}
       {actorId && <ActionEmoji actorId={actorId} />}
+      <Accessories equipped={equipped} coffee={coffee} aura={aura} />
       {!hideLabel && (
       <Html position-y={1.8} center distanceFactor={labelScale} zIndexRange={[10, 0]}>
         <div style={{ ...styles.labelWrap, transform: "translateY(-50%)" /* 이름표 아래쪽이 머리 위에 오도록 */ }}>
           {isNpc && <div style={styles.npcMark}>💬</div>}
+          {aura && <div style={styles.aura}>{aura}</div>}
           {bubble && <div style={styles.bubble}>{bubble}</div>}
           <div style={{ ...styles.name, background: isNpc ? "#b45309" : isMe ? "#e6007e" : tagColor || "rgba(0,0,0,.6)" }}>
             {isNpc ? `[NPC] ${name}` : name}
@@ -746,6 +750,186 @@ function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, mod
         </div>
       </Html>
       )}
+    </group>
+  );
+}
+
+/* ───────── 🛒 상점 아이템 겉모습 (모두에게 보임) ─────────
+   캐릭터는 +Z 를 바라봄 · 머리 꼭대기 약 1.6m                                      */
+const ACC = { headY: 1.5, handY: 0.82, handX: 0.27 };
+const GOLD = { color: "#f5c518", metalness: 0.85, roughness: 0.25 };
+function Accessories({ equipped, coffee, aura }) {
+  if (!equipped?.headset && !equipped?.pet && !equipped?.hand && !coffee && !aura) return null;
+  return (
+    <group>
+      {equipped?.headset && <GoldHeadset />}
+      {equipped?.pet && <DinoPet />}
+      {equipped?.hand && <MiniFan />}
+      {coffee && <CoffeeCup />}
+      {aura && <AuraRing />}
+    </group>
+  );
+}
+function GoldHeadset() {
+  return (
+    <group position-y={ACC.headY}>
+      <mesh>
+        <torusGeometry args={[0.135, 0.018, 8, 24, Math.PI]} />
+        <meshStandardMaterial {...GOLD} />
+      </mesh>
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[s * 0.135, -0.01, 0]} rotation-z={Math.PI / 2}>
+          <cylinderGeometry args={[0.055, 0.055, 0.04, 16]} />
+          <meshStandardMaterial {...GOLD} />
+        </mesh>
+      ))}
+      <mesh position={[0.12, -0.07, 0.07]} rotation-x={Math.PI / 2.6}>
+        <cylinderGeometry args={[0.008, 0.008, 0.16, 6]} />
+        <meshStandardMaterial {...GOLD} />
+      </mesh>
+      <mesh position={[0.1, -0.11, 0.14]}>
+        <sphereGeometry args={[0.02, 8, 8]} />
+        <meshStandardMaterial color="#222" />
+      </mesh>
+    </group>
+  );
+}
+function DinoPet() {
+  const ref = useRef();
+  useFrame(({ clock }) => {
+    if (ref.current) ref.current.position.y = 0.05 + Math.abs(Math.sin(clock.elapsedTime * 5)) * 0.05;
+  });
+  const Y = { color: "#facc15", roughness: 0.6 };
+  return (
+    <group position={[0.55, 0, -0.2]}>
+      <group ref={ref} scale={0.9}>
+        <mesh position={[0, 0.2, 0]} scale={[0.14, 0.15, 0.2]}>
+          <sphereGeometry args={[1, 16, 12]} />
+          <meshStandardMaterial {...Y} />
+        </mesh>
+        <mesh position={[0, 0.38, 0.14]}>
+          <sphereGeometry args={[0.1, 16, 12]} />
+          <meshStandardMaterial {...Y} />
+        </mesh>
+        {[-1, 1].map((s) => (
+          <mesh key={s} position={[s * 0.045, 0.42, 0.23]}>
+            <sphereGeometry args={[0.018, 8, 8]} />
+            <meshStandardMaterial color="#111" />
+          </mesh>
+        ))}
+        <mesh position={[0, 0.17, -0.25]} rotation-x={-Math.PI / 2.4}>
+          <coneGeometry args={[0.07, 0.2, 10]} />
+          <meshStandardMaterial {...Y} />
+        </mesh>
+        {[0.12, 0.0, -0.12].map((z, i) => (
+          <mesh key={i} position={[0, 0.36 - Math.abs(z) * 0.3, z]}>
+            <coneGeometry args={[0.03, 0.07, 6]} />
+            <meshStandardMaterial color="#fb923c" />
+          </mesh>
+        ))}
+        {[-1, 1].map((s) => (
+          <mesh key={`l${s}`} position={[s * 0.07, 0.05, 0.02]}>
+            <cylinderGeometry args={[0.035, 0.04, 0.1, 8]} />
+            <meshStandardMaterial {...Y} />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  );
+}
+function MiniFan() {
+  const blades = useRef();
+  useFrame((_, dt) => {
+    if (blades.current) blades.current.rotation.z += dt * 25;
+  });
+  return (
+    <group position={[-ACC.handX, ACC.handY, 0.08]}>
+      <mesh position-y={0.06}>
+        <cylinderGeometry args={[0.014, 0.018, 0.14, 8]} />
+        <meshStandardMaterial color="#f8fafc" />
+      </mesh>
+      <group position={[0, 0.17, 0]}>
+        <mesh>
+          <torusGeometry args={[0.07, 0.008, 6, 20]} />
+          <meshStandardMaterial color="#f8fafc" />
+        </mesh>
+        <group ref={blades}>
+          {[0, 1, 2].map((i) => (
+            <group key={i} rotation-z={(i * Math.PI * 2) / 3}>
+              <mesh position-x={0.032}>
+                <boxGeometry args={[0.06, 0.026, 0.005]} />
+                <meshStandardMaterial color="#bae6fd" />
+              </mesh>
+            </group>
+          ))}
+        </group>
+      </group>
+    </group>
+  );
+}
+function CoffeeCup() {
+  return (
+    <group position={[ACC.handX, ACC.handY + 0.05, 0.08]}>
+      <mesh>
+        <cylinderGeometry args={[0.045, 0.035, 0.13, 12]} />
+        <meshStandardMaterial color="#e0f2fe" transparent opacity={0.7} />
+      </mesh>
+      <mesh position-y={-0.01}>
+        <cylinderGeometry args={[0.04, 0.034, 0.1, 12]} />
+        <meshStandardMaterial color="#6b3e1d" />
+      </mesh>
+      <mesh position={[0.012, 0.1, 0]} rotation-z={-0.2}>
+        <cylinderGeometry args={[0.006, 0.006, 0.12, 6]} />
+        <meshStandardMaterial color="#16a34a" />
+      </mesh>
+    </group>
+  );
+}
+function AuraRing() {
+  const ref = useRef();
+  useFrame(({ clock }) => {
+    const g = ref.current;
+    if (!g) return;
+    const t = (clock.elapsedTime * 0.8) % 1;
+    g.scale.setScalar(0.4 + t * 1.0);
+    g.material.opacity = 0.7 * (1 - t);
+  });
+  return (
+    <mesh ref={ref} rotation-x={-Math.PI / 2} position-y={0.04}>
+      <ringGeometry args={[0.5, 0.6, 40]} />
+      <meshBasicMaterial color="#5eead4" transparent depthWrite={false} />
+    </mesh>
+  );
+}
+
+// 📡 보물 스캐너: 내 발밑에서 가장 가까운 못 찾은 보물 쪽을 가리키는 화살표
+function RadarArrow({ targets }) {
+  const ref = useRef();
+  const label = useRef();
+  useFrame(({ clock }) => {
+    const g = ref.current;
+    if (!g || !targets.length) return;
+    let best = null, bd = Infinity;
+    for (const t of targets) {
+      const d = Math.hypot(t.position[0] - LIVE_ME.x, t.position[2] - LIVE_ME.z);
+      if (d < bd) (bd = d), (best = t);
+    }
+    const ang = Math.atan2(best.position[0] - LIVE_ME.x, best.position[2] - LIVE_ME.z);
+    const r = 0.95 + Math.sin(clock.elapsedTime * 6) * 0.08;
+    g.position.set(LIVE_ME.x + Math.sin(ang) * r, 0.12, LIVE_ME.z + Math.cos(ang) * r);
+    g.rotation.y = ang;
+    if (label.current) label.current.textContent = `📡 보물까지 ${bd.toFixed(1)}m`;
+  });
+  if (!targets.length) return null;
+  return (
+    <group ref={ref}>
+      <mesh rotation-x={Math.PI / 2}>
+        <coneGeometry args={[0.16, 0.36, 3]} />
+        <meshBasicMaterial color="#22d3ee" transparent opacity={0.9} depthTest={false} />
+      </mesh>
+      <Html position-y={0.35} center zIndexRange={[9, 0]}>
+        <div ref={label} style={styles.radarLabel} />
+      </Html>
     </group>
   );
 }
@@ -869,7 +1053,7 @@ function hitsWall(colliders, x, z) {
   return false;
 }
 
-function MyAvatar({ me, inputRef, bubble, myPosRef, frozen, bounds, colliders, camMode = "top" }) {
+function MyAvatar({ me, inputRef, bubble, myPosRef, frozen, bounds, colliders, camMode = "top", speedMul = 1, coffee, aura }) {
   const ref = useRef();
   const sendTimer = useRef(0);
   const lastSent = useRef("");
@@ -904,7 +1088,7 @@ function MyAvatar({ me, inputRef, bubble, myPosRef, frozen, bounds, colliders, c
     }
     if (amount > 0) {
       const [x0, z0, x1, z1] = bounds || [-BOUNDS, -BOUNDS, BOUNDS, BOUNDS];
-      const dist = Math.min(dt, 0.25) * MOVE_SPEED * amount;
+      const dist = Math.min(dt, 0.25) * MOVE_SPEED * speedMul * amount;
       const n = Math.max(1, Math.ceil(dist / 0.1)); // 0.1m 씩 나눠 이동 → 프레임이 느려도 얇은 벽을 뚫지 않음
       for (let i = 0; i < n; i++) {
         const nx = THREE.MathUtils.clamp(g.position.x + (dx * dist) / n, x0, x1);
@@ -959,7 +1143,7 @@ function MyAvatar({ me, inputRef, bubble, myPosRef, frozen, bounds, colliders, c
   return (
     <group ref={ref} position={me.position}>
       {/* 1인칭에서는 내 몸이 카메라를 가리지 않도록 숨김 */}
-      {!CAMERA_MODES[camMode]?.firstPerson && <AvatarBody name={me.guest ? `${me.name} (방문자)` : me.name} bubble={bubble} isMe speedRef={speedRef} model={lookModel(me.look)} outfit={me.look?.outfit} actorId={me.id} />}
+      {!CAMERA_MODES[camMode]?.firstPerson && <AvatarBody name={me.guest ? `${me.name} (방문자)` : me.name} bubble={bubble} isMe speedRef={speedRef} model={lookModel(me.look)} outfit={me.look?.outfit} actorId={me.id} equipped={me.equipped} coffee={coffee} aura={aura} />}
     </group>
   );
 }
@@ -998,6 +1182,9 @@ function OtherAvatar({ player, bubble }) {
         speedRef={speedRef}
         model={lookModel(player.look)}
         outfit={player.look?.outfit}
+        equipped={player.equipped}
+        coffee={player.coffee}
+        aura={player.aura}
       />
     </group>
   );
@@ -1239,6 +1426,12 @@ export default function App() {
   const [elevatorOpen, setElevatorOpen] = useState(false);
   const [dartOpen, setDartOpen] = useState(false); // 다트 게임 화면
   const [recruiter, setRecruiter] = useState(null); // 채용담당자 메뉴 { text }
+  const [shopMode, setShopMode] = useState(null); // 🛒 "shop" | 🎒 "bag"
+  const [points, setPoints] = useState(null); // 내 포인트 (회원)
+  const [myCoffee, setMyCoffee] = useState(false);
+  const [myAura, setMyAura] = useState(null);
+  const [radarOn, setRadarOn] = useState(false);
+  const buffTimers = useRef({});
   const [msgTarget, setMsgTarget] = useState(null); // 메시지를 남길 NPC { id, name }
   const [rpsNpc, setRpsNpc] = useState(null); // 가위바위보 상대 NPC
   const [omokNpc, setOmokNpc] = useState(null); // 오목 상대 NPC
@@ -1360,7 +1553,27 @@ export default function App() {
     socket.on("inboxNew", onInboxNew);
     const onRemoteAction = ({ id, type }) => startAction(id, type);
     socket.on("action", onRemoteAction);
+    // 🛒 아이템: 포인트 적립 알림, 다른 사람의 장착·스프레이·커피
+    const onWallet = ({ points, gained, reason }) => {
+      setPoints(points);
+      if (reason) showToast(gained ? `💰 +${gained}P · ${reason}` : `💰 ${reason}`);
+    };
+    const patchPlayer = (id, patch) => {
+      setMe((m) => (m && m.id === id ? { ...m, ...patch } : m));
+      setOthers((o) => (o[id] ? { ...o, [id]: { ...o[id], ...patch } } : o));
+    };
+    const onEquip = ({ id, equipped }) => patchPlayer(id, { equipped });
+    const onAura = ({ id, aura }) => patchPlayer(id, { aura });
+    const onCoffee = ({ id, on }) => patchPlayer(id, { coffee: on });
+    socket.on("wallet", onWallet);
+    socket.on("playerEquip", onEquip);
+    socket.on("playerAura", onAura);
+    socket.on("playerCoffee", onCoffee);
     return () => {
+      socket.off("wallet", onWallet);
+      socket.off("playerEquip", onEquip);
+      socket.off("playerAura", onAura);
+      socket.off("playerCoffee", onCoffee);
       socket.off("action", onRemoteAction);
       socket.off("inboxNew", onInboxNew);
       socket.off("dartNews", onDartNews);
@@ -1377,6 +1590,11 @@ export default function App() {
     };
   }, []);
 
+  // 회원이 입장하면 포인트를 받아 🎒 버튼에 표시
+  useEffect(() => {
+    if (me?.id && !me.guest) shopInfo().then((r) => r.ok && setPoints(r.wallet.points));
+  }, [me?.id]); // eslint-disable-line
+
   /* ── 지금 층에 있는 것들 ── */
   const floorNpcs = NPCS.filter((n) => n.floor === floor);
   const crowd = useMemo(() => (COUNSEL_FLOORS.includes(floor) ? seatedWorkers(floor) : []), [floor]);
@@ -1386,11 +1604,11 @@ export default function App() {
   const targets = useMemo(
     () => [
       ...floorNpcs.map((n) => ({ type: "npc", id: n.id, position: n.position || n.path[0], live: !!n.path, range: INTERACT_DISTANCE })),
-      ...floorTreasures.map((t) => ({ type: "treasure", id: t.id, position: t.position, range: INTERACT_DISTANCE })),
+      ...floorTreasures.map((t) => ({ type: "treasure", id: t.id, position: t.position, range: INTERACT_DISTANCE + (me?.equipped?.pet ? 1.2 : 0) })),
       ...(elevatorPos ? [{ type: "elevator", id: floor, position: elevatorPos, range: ELEVATOR_DISTANCE }] : []),
       ...(floor === DART_SPOT.floor ? [{ type: "dart", id: "dart", position: DART_SPOT.position, range: DART_SPOT.range }] : []),
     ],
-    [floor, treasures, world] // eslint-disable-line
+    [floor, treasures, world, me?.equipped?.pet] // eslint-disable-line
   );
 
   const nearby =
@@ -1403,7 +1621,7 @@ export default function App() {
       : nearbyTarget?.type === "dart" && floor === DART_SPOT.floor
       ? { type: "dart", data: {} }
       : null;
-  const modalOpen = !!dialog || elevatorOpen || dartOpen || !!recruiter || !!msgTarget || inboxOpen || photoOpen || !!rpsNpc || !!omokNpc || !!shellNpc || !!reactionNpc || !!empathyNpc || rankOpen || !!baseballNpc || !!memoryNpc;
+  const modalOpen = !!dialog || elevatorOpen || dartOpen || !!recruiter || !!msgTarget || inboxOpen || photoOpen || !!rpsNpc || !!omokNpc || !!shellNpc || !!reactionNpc || !!empathyNpc || rankOpen || !!baseballNpc || !!memoryNpc || !!shopMode;
   const canInteract = nearby?.data && !modalOpen;
 
   /* ── 상호작용 ── */
@@ -1797,7 +2015,11 @@ export default function App() {
           bounds={maps[floor] ? floorBounds[floor] : null}
           colliders={maps[floor] ? floorColliders[floor] : null}
           camMode={camMode}
+          speedMul={(myCoffee ? 1.5 : 1) * (me.equipped?.hand ? 1.15 : 1)}
+          coffee={myCoffee}
+          aura={myAura}
         />
+        {radarOn && <RadarArrow targets={floorTreasures} />}
         {Object.values(others).map((p) => (
           <OtherAvatar key={p.id} player={p} bubble={bubbles[p.id]} />
         ))}
@@ -1836,6 +2058,36 @@ export default function App() {
         </button>
       )}
 
+      {!me.guest && (
+        <button style={styles.bagBtn} onClick={() => setShopMode("bag")}>
+          🎒 {points === null ? "가방" : `${points.toLocaleString()}P`}
+        </button>
+      )}
+      {shopMode && (
+        <Shop
+          key={shopMode}
+          mode={shopMode}
+          onClose={() => setShopMode(null)}
+          onWallet={(w) => {
+            setPoints(w.points);
+            setMe((m) => (m ? { ...m, equipped: w.equipped } : m));
+          }}
+          canUse={(it) =>
+            it.effect === "RADAR_SCAN" && !floorTreasures.length ? "이 층에는 아직 못 찾은 보물이 없어요. 다른 층에서 써 보세요!" : null
+          }
+          onUsed={(it, r) => {
+            if (!r.buff) return;
+            const { effect, duration } = r.buff;
+            const key = effect;
+            clearTimeout(buffTimers.current[key]);
+            const set = effect === "SPEED_BOOST" ? setMyCoffee : effect === "RADAR_SCAN" ? setRadarOn : (v) => setMyAura(v ? "✨ 상쾌함 충전!" : null);
+            set(true);
+            buffTimers.current[key] = setTimeout(() => set(false), duration);
+            setShopMode(null);
+            showToast(r.message);
+          }}
+        />
+      )}
       <button style={styles.rankBtn} onClick={() => setRankOpen(true)}>
         🏆 랭킹
       </button>
@@ -1934,6 +2186,16 @@ export default function App() {
               }}
             >
               4. 💌 메시지 남기기
+            </button>
+            <button
+              style={{ ...styles.menuBtn, background: "#e6007e", color: "#fff", borderColor: "#e6007e" }}
+              onClick={() => {
+                setRecruiter(null);
+                if (me?.guest) openDialog("채용담당자", "아이템 상점은 회원가입한 임직원만 이용할 수 있어요. 로그인하고 다시 와 주세요! 🙂");
+                else setShopMode("shop");
+              }}
+            >
+              5. 🛒 아이템 상점
             </button>
             <div style={styles.menuNote}>1·2번은 새 창(바깥 브라우저)으로 열려요. 같은 창에서 열렸다면 뒤로 가기를 누르면 이 자리로 돌아와요.</div>
           </div>
@@ -2129,6 +2391,9 @@ const styles = {
   closeBtn: { marginTop: 4, fontSize: 14, padding: "8px 0", borderRadius: 10, border: 0, background: "transparent", color: "#cbd5e1" },
   moving: { position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(15,23,42,.55)", color: "#fff", fontSize: 22, fontWeight: 800, zIndex: 50 },
   loading: { background: "rgba(0,0,0,.6)", color: "#fff", padding: "6px 12px", borderRadius: 8, fontSize: 13, whiteSpace: "nowrap" },
+  bagBtn: { position: "absolute", top: "calc(172px + env(safe-area-inset-top))", right: 12, padding: "6px 12px", borderRadius: 999, border: 0, background: "rgba(255,255,255,.88)", color: "#9d174d", fontSize: 13, fontWeight: 800, boxShadow: "0 2px 6px rgba(0,0,0,.2)", zIndex: 12 },
+  aura: { background: "#ccfbf1", color: "#0f766e", border: "1px solid #5eead4", borderRadius: 999, padding: "2px 8px", fontSize: 12, fontWeight: 800, whiteSpace: "nowrap", marginBottom: 3 },
+  radarLabel: { background: "rgba(8,145,178,.9)", color: "#fff", borderRadius: 999, padding: "2px 8px", fontSize: 12, fontWeight: 800, whiteSpace: "nowrap", pointerEvents: "none" },
   rankBtn: { position: "absolute", top: "calc(132px + env(safe-area-inset-top))", right: 12, padding: "6px 12px", borderRadius: 999, border: 0, background: "rgba(255,255,255,.88)", color: "#111827", fontSize: 13, fontWeight: 700, boxShadow: "0 2px 6px rgba(0,0,0,.2)", zIndex: 12 },
   inboxBtn: { position: "absolute", top: "calc(92px + env(safe-area-inset-top))", right: 12, padding: "6px 12px", borderRadius: 999, border: 0, background: "rgba(255,255,255,.88)", color: "#111827", fontSize: 13, fontWeight: 700, boxShadow: "0 2px 6px rgba(0,0,0,.2)", zIndex: 12 },
   badge: { position: "absolute", top: -6, right: -6, minWidth: 18, height: 18, lineHeight: "18px", borderRadius: 999, background: "#ef4444", color: "#fff", fontSize: 11, textAlign: "center", padding: "0 4px" },

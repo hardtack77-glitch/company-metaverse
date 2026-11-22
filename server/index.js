@@ -13,6 +13,7 @@ import { Server } from "socket.io";
 import crypto from "crypto";
 import { N as OMOK_N, emptyBoard, isWin, aiMove } from "./omok.js";
 import { EMPATHY_QUESTIONS, EMPATHY_POINTS, EMPATHY_COUNT } from "./empathy.js";
+import { ITEM_CATALOG, SLOTS, drawDart, TREASURE_POINTS, GAME_DAILY_CAP, GAME_POINTS, GAME_KO, newWallet } from "./shop.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // 배포 시: client 를 빌드한 결과물(client/dist)을 이 서버가 같이 보내 줌 → 주소 하나로 접속
@@ -110,7 +111,7 @@ const cleanLook = (look) => ({
 });
 const clean = (s, max) => String(s ?? "").replace(/[<>]/g, "").trim().slice(0, max);
 const dist2D = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
-const publicPlayer = ({ key, empNo, ...p }) => p; // 고유키·사번은 다른 사람에게 보내지 않음
+const publicPlayer = ({ key, empNo, coffeeTimer, ...p }) => p; // 고유키·사번은 다른 사람에게 보내지 않음
 const playersOnFloor = (floor) => [...players.values()].filter((p) => p.floor === floor).map(publicPlayer);
 const elevatorExit = (floor) => [...ELEVATOR_EXITS[floor]];
 
@@ -284,6 +285,7 @@ function finishOmok(p, game, result, resigned = false) {
   omokGames.push(g);
   if (db) db.collection("omokGames").doc(g.id).set(g).catch((e) => console.error("오목 저장 실패:", e.message));
   console.log(`[오목] ${p.name}(${p.empNo}) vs ${g.npcName} → ${OMOK_RESULT_KO[result]}${resigned ? " (기권)" : ""} · ${g.moves}수`);
+  awardGame(p, "omok", g);
   return omokStats(p.empNo);
 }
 const OMOK_LINES = {
@@ -586,6 +588,54 @@ app.get("/admin/users", async (req, res) => {
 <table><tr><th>사번</th><th>이름</th><th>명단 대조</th><th>가입일</th><th>마지막 로그인</th><th></th></tr>${rows || "<tr><td colspan=6>아직 가입한 사람이 없어요.</td></tr>"}</table></body></html>`);
 });
 
+/* ───────── 🛒 포인트 지갑 (회원 전용) ─────────
+   - 사번별 포인트·가방·장착 상태 → Firestore "wallets" 에 저장 (서버가 다시 켜져도 유지)
+   - 처음 쓰는 회원은 500P + 커피 1잔으로 시작
+   - 보물 1개 300P, 미니게임은 결과에 따라 0~50P (하루 최대 300P)                         */
+const wallets = new Map(); // 사번 → { empNo, points, bag, equipped, day, dayGame }
+const kstDay = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+function getWallet(empNo) {
+  if (!empNo) return null;
+  let w = wallets.get(empNo);
+  if (!w) {
+    w = newWallet(empNo);
+    wallets.set(empNo, w);
+    saveWallet(w);
+  }
+  return w;
+}
+function saveWallet(w) {
+  if (!db) return;
+  db.collection("wallets").doc(w.empNo).set(w).catch((e) => console.error("지갑 저장 실패:", e.message));
+}
+const walletView = (w) => ({ points: w.points, bag: w.bag, equipped: w.equipped, gameLeft: Math.max(0, GAME_DAILY_CAP - (w.day === kstDay() ? w.dayGame : 0)) });
+function addPoints(p, amount, reason) {
+  const w = getWallet(p.empNo);
+  if (!w || amount <= 0) return 0;
+  w.points += amount;
+  saveWallet(w);
+  io.to(p.id).emit("wallet", { ...walletView(w), gained: amount, reason });
+  return amount;
+}
+// 미니게임 보상 (하루 상한 적용)
+function awardGame(p, game, g) {
+  if (!p?.empNo) return 0;
+  const w = getWallet(p.empNo);
+  const today = kstDay();
+  if (w.day !== today) {
+    w.day = today;
+    w.dayGame = 0;
+  }
+  const want = Math.max(0, Math.round(GAME_POINTS[game]?.(g) || 0));
+  const got = Math.min(want, Math.max(0, GAME_DAILY_CAP - w.dayGame));
+  w.dayGame += got;
+  if (!got) {
+    if (want) io.to(p.id).emit("wallet", { ...walletView(w), gained: 0, reason: `오늘 미니게임 포인트를 다 받았어요 (하루 ${GAME_DAILY_CAP}P)` });
+    return 0;
+  }
+  return addPoints(p, got, `${GAME_KO[game] || "미니게임"} 보상`);
+}
+
 /* ───────── 사원 명단 (회원가입 확인용) ─────────
    - 명단은 GitHub 에 올리지 않고 Firestore "config/roster" 에만 저장 (관리자 페이지에서 붙여넣기)
    - 명단이 올라가 있으면: 회원가입 때 사번 + 이름이 명단과 같아야 가입됨
@@ -698,6 +748,9 @@ async function initStorage() {
       rosterUpdatedAt = d.updatedAt || null;
     }
     console.log(`✅ 사원 명단: ${roster.size}명 복원`);
+    const walletSnap = await db.collection("wallets").get();
+    walletSnap.forEach((doc) => wallets.set(doc.id, doc.data()));
+    console.log(`✅ 포인트 지갑: ${walletSnap.size}명 복원`);
     const userSnap = await db.collection("users").get();
     userSnap.forEach((doc) => users.set(doc.id, doc.data()));
     console.log(`✅ 회원: ${userSnap.size}명 복원`);
@@ -808,6 +861,7 @@ io.on("connection", (socket) => {
       player.position = [resume.position[0], 0, resume.position[2]];
       player.rotationY = Number.isFinite(resume.rotationY) ? resume.rotationY : 0;
     }
+    if (member) player.equipped = { ...getWallet(member.empNo).equipped }; // 장착 아이템은 다른 사람에게도 보임
     players.set(socket.id, player);
     socket.join(player.floor);
     if (member && JSON.stringify(member.look) !== JSON.stringify(player.look)) {
@@ -962,6 +1016,7 @@ io.on("connection", (socket) => {
     const avg = Math.round((t.reduce((a, b) => a + b, 0) + fs * FALSE_START_PENALTY) / REACTION_CALLS);
     const g = { id: gid(), empNo: p.empNo, name: p.name, npcId: reaction.npcId, npcName: reaction.npcName, floor: p.floor, times: t, falseStarts: fs, avg, fastest: Math.min(...t), at: new Date().toISOString() };
     saveGame("reactionGames", reactionGames, g);
+    awardGame(p, "reaction", g);
     console.log(`[반응속도] ${p.name}(${p.empNo}) 평균 ${avg}ms (부정출발 ${fs})`);
     reaction = null;
     reply({ ok: true, avg, fastest: g.fastest, falseStarts: fs, stats: reactionStats(p.empNo) });
@@ -1008,6 +1063,7 @@ io.on("connection", (socket) => {
     const seconds = Math.round((Date.now() - memory.startAt) / 100) / 10;
     const g = { id: gid(), empNo: p.empNo, name: p.name, npcId: memory.npcId, npcName: memory.npcName, floor: p.floor, seconds, moves: memory.moves, at: new Date().toISOString() };
     saveGame("memoryGames", memoryGames, g);
+    awardGame(p, "memory", g);
     console.log(`[짝맞추기] ${p.name}(${p.empNo}) ${seconds}초 · ${memory.moves}번`);
     memory = null;
     reply({ ok: true, symbol, first: false, match, pair: j, moves: g.moves, done: true, seconds, stats: memoryStats(p.empNo) });
@@ -1044,6 +1100,7 @@ io.on("connection", (socket) => {
     if (!success && tries < BASEBALL_MAX) return reply({ ok: true, strike, ball, tries, done: false });
     const g = { id: gid(), empNo: p.empNo, name: p.name, npcId: baseball.npcId, npcName: baseball.npcName, floor: p.floor, success, tries, secret: sec, guesses: baseball.guesses, at: new Date().toISOString() };
     saveGame("baseballGames", baseballGames, g);
+    awardGame(p, "baseball", g);
     console.log(`[숫자야구] ${p.name}(${p.empNo}) ${success ? `${tries}번 만에 성공` : "실패"}`);
     baseball = null;
     reply({ ok: true, strike, ball, tries, done: true, success, secret: sec, stats: baseballStats(p.empNo) });
@@ -1085,6 +1142,7 @@ io.on("connection", (socket) => {
     if (empathy.idx < empathy.questions.length) return reply({ ...base, done: false });
     const g = { id: gid(), empNo: p.empNo, name: p.name, npcId: empathy.npcId, npcName: empathy.npcName, floor: p.floor, score: empathy.score, bestCount: empathy.answers.filter((a) => a.pick === "best").length, answers: empathy.answers, at: new Date().toISOString() };
     saveGame("empathyGames", empathyGames, g);
+    awardGame(p, "empathy", g);
     console.log(`[공감응대] ${p.name}(${p.empNo}) ${g.score}점`);
     empathy = null;
     reply({ ...base, done: true, stats: empathyStats(p.empNo) });
@@ -1142,6 +1200,7 @@ io.on("connection", (socket) => {
     };
     shellGames.push(g);
     if (db) db.collection("shellGames").doc(g.id).set(g).catch((e) => console.error("야바위 저장 실패:", e.message));
+    awardGame(p, "shell", g);
     console.log(`[야바위] ${p.name}(${p.empNo}) ${g.rounds.map((r) => (r ? "O" : "X")).join("")} → ${score}/3`);
     shell = null;
     reply({ ok: true, correct, answer, done: true, score, stats: shellStats(p.empNo) });
@@ -1217,6 +1276,7 @@ io.on("connection", (socket) => {
     };
     rpsGames.push(g);
     if (db) db.collection("rpsGames").doc(g.id).set(g).catch((e) => console.error("가위바위보 저장 실패:", e.message));
+    awardGame(p, "rps", g);
     const lines = RPS_LINES[result];
     console.log(`[가위바위보] ${p.name}(${p.empNo}) ${RPS_KO[choice]} vs ${g.npcName} ${RPS_KO[npc]} → ${RESULT_KO[result]}`);
     reply({ ok: true, npc, result, message: lines[crypto.randomInt(lines.length)], stats: rpsStats(p.empNo) });
@@ -1251,6 +1311,108 @@ io.on("connection", (socket) => {
   });
 
   // 5) 보물 획득 요청 → 서버 검증 → 콜백으로 결과 응답
+  // 🛒 아이템 상점 (회원 전용) — 포인트·가방·장착은 모두 서버가 관리
+  socket.on("shopInfo", (_, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = member(reply);
+    if (!p) return;
+    reply({ ok: true, catalog: Object.values(ITEM_CATALOG), wallet: walletView(getWallet(p.empNo)) });
+  });
+  let lastShop = 0;
+  const shopGuard = (reply) => {
+    const p = member(reply);
+    if (!p) return null;
+    const now = Date.now();
+    if (now - lastShop < 300) return reply({ ok: false, message: "조금만 천천히!" }), null;
+    lastShop = now;
+    return p;
+  };
+  const sendEquip = (p) => io.to(p.floor).emit("playerEquip", { id: p.id, equipped: p.equipped });
+  socket.on("buyItem", (itemId, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = shopGuard(reply);
+    if (!p) return;
+    const item = ITEM_CATALOG[itemId];
+    if (!item) return reply({ ok: false, message: "없는 아이템이에요." });
+    const w = getWallet(p.empNo);
+    if (item.type === "equipment" && (w.bag[itemId] || 0) >= 1) return reply({ ok: false, message: "이미 가지고 있는 장착 아이템이에요." });
+    if ((w.bag[itemId] || 0) >= 99) return reply({ ok: false, message: "가방에 더 넣을 수 없어요 (최대 99개)." });
+    if (w.points < item.buyPrice) return reply({ ok: false, message: `포인트가 부족해요! (보유 ${w.points}P / 필요 ${item.buyPrice}P)` });
+    w.points -= item.buyPrice;
+    w.bag[itemId] = (w.bag[itemId] || 0) + 1;
+    saveWallet(w);
+    console.log(`[상점] ${p.name}(${p.empNo}) 구매 ${item.name} -${item.buyPrice}P → ${w.points}P`);
+    reply({ ok: true, wallet: walletView(w), message: `🛒 ${item.name} 구매 완료! (-${item.buyPrice}P)` });
+  });
+  socket.on("sellItem", (itemId, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = shopGuard(reply);
+    if (!p) return;
+    const item = ITEM_CATALOG[itemId];
+    const w = getWallet(p.empNo);
+    if (!item || !(w.bag[itemId] > 0)) return reply({ ok: false, message: "가지고 있지 않은 아이템이에요." });
+    if (item.type === "equipment" && w.equipped[item.slot] === itemId) {
+      w.equipped[item.slot] = null;
+      p.equipped = { ...w.equipped };
+      sendEquip(p);
+    }
+    w.bag[itemId] -= 1;
+    if (w.bag[itemId] <= 0) delete w.bag[itemId];
+    w.points += item.sellPrice;
+    saveWallet(w);
+    console.log(`[상점] ${p.name}(${p.empNo}) 판매 ${item.name} +${item.sellPrice}P → ${w.points}P`);
+    reply({ ok: true, wallet: walletView(w), message: `💰 ${item.name} 판매 완료! (+${item.sellPrice}P)` });
+  });
+  let auraTimer = null;
+  socket.on("useItem", (itemId, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = shopGuard(reply);
+    if (!p) return;
+    const item = ITEM_CATALOG[itemId];
+    const w = getWallet(p.empNo);
+    if (!item || !(w.bag[itemId] > 0)) return reply({ ok: false, message: "사용할 아이템이 없어요." });
+    // (A) 장착 아이템: 장착 ↔ 해제
+    if (item.type === "equipment") {
+      const on = w.equipped[item.slot] === itemId;
+      w.equipped[item.slot] = on ? null : itemId;
+      p.equipped = { ...w.equipped };
+      saveWallet(w);
+      sendEquip(p);
+      return reply({ ok: true, wallet: walletView(w), message: on ? `${item.name} 장착을 풀었어요.` : `✨ ${item.name} 장착 완료!` });
+    }
+    w.bag[itemId] -= 1;
+    if (w.bag[itemId] <= 0) delete w.bag[itemId];
+    // (B) 럭키 다트 티켓
+    if (item.type === "gacha") {
+      const prize = drawDart(crypto.randomInt);
+      w.points += prize;
+      saveWallet(w);
+      console.log(`[상점] ${p.name}(${p.empNo}) 다트 티켓 → ${prize}P`);
+      return reply({ ok: true, wallet: walletView(w), prize, message: `🎯 불스아이! ${prize}P 당첨!` });
+    }
+    // (C) 소모품: 효과는 화면에서, 상쾌 스프레이는 같은 층 모두에게 보임
+    saveWallet(w);
+    if (item.effect === "AURA_EMOJI") {
+      clearTimeout(auraTimer);
+      p.aura = "✨ 상쾌함 충전!";
+      io.to(p.floor).emit("playerAura", { id: p.id, aura: p.aura });
+      auraTimer = setTimeout(() => {
+        p.aura = null;
+        io.to(p.floor).emit("playerAura", { id: p.id, aura: null });
+      }, item.duration);
+    }
+    if (item.effect === "SPEED_BOOST") {
+      clearTimeout(p.coffeeTimer);
+      p.coffee = true;
+      io.to(p.floor).emit("playerCoffee", { id: p.id, on: true });
+      p.coffeeTimer = setTimeout(() => {
+        p.coffee = false;
+        io.to(p.floor).emit("playerCoffee", { id: p.id, on: false });
+      }, item.duration);
+    }
+    reply({ ok: true, wallet: walletView(w), buff: { effect: item.effect, duration: item.duration }, message: `⚡ ${item.name} 사용! (${item.duration / 1000}초)` });
+  });
+
   socket.on("claimTreasure", async (treasureId, ack) => {
     const reply = typeof ack === "function" ? ack : () => {};
     const player = players.get(socket.id);
@@ -1258,7 +1420,7 @@ io.on("connection", (socket) => {
 
     if (!player) return reply({ success: false, message: "먼저 입장해 주세요." });
     if (!item) return reply({ success: false, message: "존재하지 않는 보물입니다." });
-    if (player.floor !== item.floor || dist2D(player.position, item.position) > CLAIM_DISTANCE)
+    if (player.floor !== item.floor || dist2D(player.position, item.position) > CLAIM_DISTANCE + (player.equipped?.pet ? 1.2 : 0))
       return reply({ success: false, message: "보물에 더 가까이 가야 해요!" });
 
     const lockKey = TREASURE_MODE === "first" ? treasureId : `${treasureId}:${player.key}`;
@@ -1272,12 +1434,13 @@ io.on("connection", (socket) => {
 
       await saveClaim(treasureId, player);
       set.add(player.key);
+      const bonus = player.empNo ? addPoints(player, TREASURE_POINTS, `[${item.name}] 보물 발견`) : 0;
 
       reply({
         success: true,
         treasureId,
         itemName: item.name,
-        message: `축하합니다! [${item.name}]을(를) 찾았습니다!`,
+        message: `축하합니다! [${item.name}]을(를) 찾았습니다!${bonus ? ` (+${bonus}P)` : ""}`,
       });
       // 획득 알림은 전 층에 공지
       io.emit("treasureClaimed", {
@@ -1307,6 +1470,8 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     const p = players.get(socket.id);
     if (!p) return;
+    clearTimeout(auraTimer);
+    clearTimeout(p.coffeeTimer);
     players.delete(socket.id);
     io.to(p.floor).emit("playerLeft", socket.id);
     io.emit("onlineCount", players.size);
