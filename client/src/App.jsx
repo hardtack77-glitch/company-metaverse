@@ -10,6 +10,12 @@ import DartGame from "./DartGame.jsx";
 import NpcMessage from "./NpcMessage.jsx";
 import ChatLog from "./ChatLog.jsx";
 import Inbox from "./Inbox.jsx";
+import RpsGame from "./RpsGame.jsx";
+import OmokGame from "./OmokGame.jsx";
+import ShellGame from "./ShellGame.jsx";
+import ReactionGame from "./ReactionGame.jsx";
+import EmpathyGame from "./EmpathyGame.jsx";
+import Rankings from "./Rankings.jsx";
 import PhotoSpot from "./PhotoSpot.jsx";
 import { zoneAt } from "./photoZones.js";
 import { ACTIONS, ACTION_MAP, startAction, cancelAction, actionState, actionPose, onAction, PLANE_RELEASE } from "./actions.js";
@@ -1232,6 +1238,12 @@ export default function App() {
   const [dartOpen, setDartOpen] = useState(false); // 다트 게임 화면
   const [recruiter, setRecruiter] = useState(null); // 채용담당자 메뉴 { text }
   const [msgTarget, setMsgTarget] = useState(null); // 메시지를 남길 NPC { id, name }
+  const [rpsNpc, setRpsNpc] = useState(null); // 가위바위보 상대 NPC
+  const [omokNpc, setOmokNpc] = useState(null); // 오목 상대 NPC
+  const [shellNpc, setShellNpc] = useState(null); // 야바위 상대 NPC
+  const [reactionNpc, setReactionNpc] = useState(null); // 콜 받기 반응속도
+  const [empathyNpc, setEmpathyNpc] = useState(null); // 공감 응대 챌린지
+  const [rankOpen, setRankOpen] = useState(false); // 🏆 랭킹 게시판
   const [chatLines, setChatLines] = useState([]); // 이 층 대화 (최근 30줄)
   const [inboxOpen, setInboxOpen] = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
@@ -1387,7 +1399,7 @@ export default function App() {
       : nearbyTarget?.type === "dart" && floor === DART_SPOT.floor
       ? { type: "dart", data: {} }
       : null;
-  const modalOpen = !!dialog || elevatorOpen || dartOpen || !!recruiter || !!msgTarget || inboxOpen || photoOpen;
+  const modalOpen = !!dialog || elevatorOpen || dartOpen || !!recruiter || !!msgTarget || inboxOpen || photoOpen || !!rpsNpc || !!omokNpc || !!shellNpc || !!reactionNpc || !!empathyNpc || rankOpen;
   const canInteract = nearby?.data && !modalOpen;
 
   /* ── 상호작용 ── */
@@ -1403,7 +1415,22 @@ export default function App() {
   const interact = () => {
     if (!canInteract || busy) return;
     if (nearby.type === "npc" && nearby.data.menu === "recruiter") setRecruiter({ text: RECRUIT_GREETING });
-    else if (nearby.type === "npc") openDialog(nearby.data.name, nearby.data.dialog, { id: nearby.data.id, name: nearby.data.name });
+    else if (nearby.type === "npc")
+      openDialog(
+        nearby.data.name,
+        nearby.data.game === "rps"
+          ? [...nearby.data.dialog, "심심하면 나랑 가위바위보 한 판 할래요? 이기면 기록이 남아요! ✊✌️✋"]
+          : nearby.data.game === "reaction"
+          ? [...nearby.data.dialog, "콜 받기 반응속도 게임 해 볼래요? 📞 벨이 울리면 최대한 빨리 받아 주세요!"]
+          : nearby.data.game === "empathy"
+          ? [...nearby.data.dialog, "공감 응대 챌린지에 도전해 볼래요? 💗 고객의 말에 가장 공감하는 답변을 골라 주세요!"]
+          : nearby.data.game === "shell"
+          ? [...nearby.data.dialog, "컵 세 개 중 어디에 공이 있을까요? 야바위 3판! 갈수록 빨라져요. 눈 크게 뜨세요 👀"]
+          : nearby.data.game === "omok"
+          ? [...nearby.data.dialog, "저랑 오목 한 판 두실래요? 다섯 알을 먼저 잇는 사람이 이겨요. 봐 드리진 않아요! ⚫⚪"]
+          : nearby.data.dialog,
+        { id: nearby.data.id, name: nearby.data.name, game: nearby.data.game }
+      );
     else if (nearby.type === "treasure") pickUp(nearby.data);
     else if (nearby.type === "elevator") setElevatorOpen(true);
     else if (nearby.type === "dart") setDartOpen(true);
@@ -1801,6 +1828,9 @@ export default function App() {
         </button>
       )}
 
+      <button style={styles.rankBtn} onClick={() => setRankOpen(true)}>
+        🏆 랭킹
+      </button>
       <button style={styles.inboxBtn} onClick={() => setInboxOpen(true)}>
         📬 메시지함
         {inboxUnread > 0 && <span style={styles.badge}>{inboxUnread}</span>}
@@ -1830,6 +1860,12 @@ export default function App() {
       {!dialog && !recruiter && <ChatLog lines={chatLines} myId={me.id} floor={floor} />}
 
       {msgTarget && <NpcMessage npc={msgTarget} onClose={() => setMsgTarget(null)} />}
+      {rpsNpc && <RpsGame npc={rpsNpc} onClose={() => setRpsNpc(null)} />}
+      {omokNpc && <OmokGame npc={omokNpc} onClose={() => setOmokNpc(null)} />}
+      {shellNpc && <ShellGame npc={shellNpc} onClose={() => setShellNpc(null)} />}
+      {reactionNpc && <ReactionGame npc={reactionNpc} onClose={() => setReactionNpc(null)} />}
+      {empathyNpc && <EmpathyGame npc={empathyNpc} onClose={() => setEmpathyNpc(null)} />}
+      {rankOpen && <Rankings me={me} onClose={() => setRankOpen(false)} />}
       {dartOpen && <DartGame playerName={me.name} onSubmit={submitDart} onClose={() => setDartOpen(false)} />}
 
       {elevatorOpen && (
@@ -1900,6 +1936,62 @@ export default function App() {
           <p style={styles.dialogText}>{dialog.lines[dialog.page]}</p>
           {dialog.npc && dialog.page === dialog.lines.length - 1 ? (
             <div style={styles.dialogActions}>
+              {(dialog.npc.game === "reaction" || dialog.npc.game === "empathy") && (
+                <button
+                  style={{ ...styles.dialogMsgBtn, background: dialog.npc.game === "reaction" ? "#0891b2" : "#db2777" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const npc = dialog.npc;
+                    setDialog(null);
+                    if (me?.guest) openDialog(npc.name, "이 게임은 회원가입한 임직원만 할 수 있어요. 로그인하고 다시 와 주세요! 🙂");
+                    else (npc.game === "reaction" ? setReactionNpc : setEmpathyNpc)(npc);
+                  }}
+                >
+                  {dialog.npc.game === "reaction" ? "📞 콜 받기 게임" : "💗 공감 응대 챌린지"}
+                </button>
+              )}
+              {dialog.npc.game === "shell" && (
+                <button
+                  style={{ ...styles.dialogMsgBtn, background: "#d97706" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const npc = dialog.npc;
+                    setDialog(null);
+                    if (me?.guest) openDialog(npc.name, "야바위 게임은 회원가입한 임직원만 할 수 있어요. 로그인하고 다시 와 주세요! 🙂");
+                    else setShellNpc(npc);
+                  }}
+                >
+                  🥤 야바위 게임
+                </button>
+              )}
+              {dialog.npc.game === "omok" && (
+                <button
+                  style={{ ...styles.dialogMsgBtn, background: "#111827" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const npc = dialog.npc;
+                    setDialog(null);
+                    if (me?.guest) openDialog(npc.name, "오목 대결은 회원가입한 임직원만 할 수 있어요. 로그인하고 다시 와 주세요! 🙂");
+                    else setOmokNpc(npc);
+                  }}
+                >
+                  ⚫ 오목 대결
+                </button>
+              )}
+              {dialog.npc.game === "rps" && (
+                <button
+                  style={{ ...styles.dialogMsgBtn, background: "#2563eb" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const npc = dialog.npc;
+                    setDialog(null);
+                    if (me?.guest) openDialog(npc.name, "가위바위보는 회원가입한 임직원만 할 수 있어요. 로그인하고 다시 와 주세요! 🙂");
+                    else setRpsNpc(npc);
+                  }}
+                >
+                  ✊ 가위바위보 하기
+                </button>
+              )}
               <button
                 style={styles.dialogMsgBtn}
                 onClick={(e) => {
@@ -1999,6 +2091,7 @@ const styles = {
   closeBtn: { marginTop: 4, fontSize: 14, padding: "8px 0", borderRadius: 10, border: 0, background: "transparent", color: "#cbd5e1" },
   moving: { position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(15,23,42,.55)", color: "#fff", fontSize: 22, fontWeight: 800, zIndex: 50 },
   loading: { background: "rgba(0,0,0,.6)", color: "#fff", padding: "6px 12px", borderRadius: 8, fontSize: 13, whiteSpace: "nowrap" },
+  rankBtn: { position: "absolute", top: "calc(132px + env(safe-area-inset-top))", right: 12, padding: "6px 12px", borderRadius: 999, border: 0, background: "rgba(255,255,255,.88)", color: "#111827", fontSize: 13, fontWeight: 700, boxShadow: "0 2px 6px rgba(0,0,0,.2)", zIndex: 12 },
   inboxBtn: { position: "absolute", top: "calc(92px + env(safe-area-inset-top))", right: 12, padding: "6px 12px", borderRadius: 999, border: 0, background: "rgba(255,255,255,.88)", color: "#111827", fontSize: 13, fontWeight: 700, boxShadow: "0 2px 6px rgba(0,0,0,.2)", zIndex: 12 },
   badge: { position: "absolute", top: -6, right: -6, minWidth: 18, height: 18, lineHeight: "18px", borderRadius: 999, background: "#ef4444", color: "#fff", fontSize: 11, textAlign: "center", padding: "0 4px" },
   camBtn: { position: "absolute", top: "calc(52px + env(safe-area-inset-top))", right: 12, padding: "6px 12px", borderRadius: 999, border: 0, background: "rgba(255,255,255,.88)", color: "#111827", fontSize: 13, fontWeight: 700, boxShadow: "0 2px 6px rgba(0,0,0,.2)", zIndex: 12 },

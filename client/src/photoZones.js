@@ -23,9 +23,9 @@ export const PHOTO_ZONES = [
     photos: [1, 2, 3, 4, 5, 6].map((i) => `counsel_${i}.jpg`), thumb: "counsel_thumb.jpg",
     text: "초록 식물과 나무 화분 칸막이로 꾸며진 상담실이에요. 상담사 한 분 한 분이 편안한 환경에서 고객의 마음까지 상담할 수 있도록 마련된 공간입니다.",
   },
-  // 1층 일반강의장1 (블렌더 X 9.4~17.6, Y 6.0~10.6)
+  // 1층 일반강의장 (블렌더 X 9.4~17.6, Y 16~23)
   {
-    id: "lecture_1f", floors: ["1F"], x: [9.4, 17.6], z: [-10.6, -6.0], title: "일반강의장",
+    id: "lecture_1f", floors: ["1F"], x: [9.4, 17.6], z: [-23.0, -16.0], title: "일반강의장",
     photos: ["lecture_1.jpg", "lecture_2.jpg"], thumb: "lecture_thumb.jpg",
     text: "입사 후 교육을 받는 일반강의장이에요. 스크린과 화이트보드가 갖춰져 있어 강사님과 함께 상담 업무를 차근차근 배울 수 있어요.",
   },
@@ -101,10 +101,10 @@ export const PHOTO_ZONES = [
     photo: "entrance.jpg", thumb: "entrance_thumb.jpg",
     text: "출입구에 들어서면 따뜻한 나무 벽과 초록 화분, LG U+ TV가 맞아 주는 상담실 입구예요. 여기서부터 상담실이 시작돼요.",
   })),
-  // 1층 교육장 복도 (교육 복도 X 0~9.4, Y 4.45~6.6 + 북측 강의장 복도 X 7.1~9.4, Y 6.6~18.8) — 같은 id 로 한 구역처럼
+  // 1층 교육장 복도 (교육 복도 X 0~9.4, Y 4.45~6.6 + 북측 강의장 복도 X 7.1~9.4, Y 6.6~17.6) — 같은 id 로 한 구역처럼
   ...[
     { x: [0, 9.4], z: [-6.6, -4.45] },
-    { x: [7.1, 9.4], z: [-18.8, -6.6] },
+    { x: [7.1, 9.4], z: [-17.6, -6.6] },
   ].map((r) => ({
     id: "training_corr_1f", floors: ["1F"], ...r, title: "교육장 복도",
     photos: ["training_corr_2.jpg", "training_corr_1.jpg"], thumb: "training_corr_thumb.jpg",

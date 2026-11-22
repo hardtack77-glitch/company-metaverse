@@ -117,6 +117,24 @@ export const sendNpcMessage = (payload) =>
   request("npcMessage", payload, { ok: false, message: "서버 응답이 없어요. 잠시 후 다시 시도해 주세요." });
 // 동작(손 흔들기·춤 등) — 동작 이름만 보냄
 export const sendAction = (type) => socket.connected && socket.emit("action", type);
+// 가위바위보 (회원만): choice = "rock" | "scissors" | "paper" → { ok, npc, result, stats, message }
+export const playRps = (npcId, npcName, choice) => request("rps", { npcId, npcName, choice }, { ok: false, message: "서버 응답이 없어요. 다시 시도해 주세요." });
+export const getRpsStats = () => request("rpsStats", null, { ok: false });
+// 오목 (회원만): 서버가 판을 들고 있고 NPC 수도 서버가 둠
+const OMOK_FAIL = { ok: false, message: "서버 응답이 없어요. 다시 시도해 주세요." };
+export const omokStart = (npcId, npcName) => request("omokStart", { npcId, npcName }, OMOK_FAIL);
+export const omokMove = (x, y) => request("omokMove", { x, y }, OMOK_FAIL);
+export const omokResign = () => request("omokResign", null, OMOK_FAIL);
+// 야바위 (회원만): 3판, 판마다 서버가 섞는 순서를 정하고 정답 확인·기록
+export const shellStart = (npcId, npcName) => request("shellStart", { npcId, npcName }, OMOK_FAIL);
+export const shellRound = () => request("shellRound", null, OMOK_FAIL);
+export const shellPick = (cup) => request("shellPick", { cup }, OMOK_FAIL);
+// 📞 반응속도 · 💗 공감 응대 · 🏆 랭킹
+export const reactionStart = (npcId, npcName) => request("reactionStart", { npcId, npcName }, OMOK_FAIL);
+export const reactionSubmit = (times, falseStarts) => request("reactionSubmit", { times, falseStarts }, OMOK_FAIL);
+export const empathyStart = (npcId, npcName) => request("empathyStart", { npcId, npcName }, OMOK_FAIL);
+export const empathyAnswer = (pick) => request("empathyAnswer", { pick }, OMOK_FAIL);
+export const getRankings = (period) => request("rankings", { period }, OMOK_FAIL);
 export const getMyMessages = () => request("myMessages", null, { ok: false, items: [] });
 export const getNpcMessages = (npcId) => request("npcMessages", npcId, { ok: false, messages: [] });
 

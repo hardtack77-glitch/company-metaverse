@@ -1,5 +1,5 @@
 // 층별 고정 NPC 직원 명단 + 상담실(7·8·9층) 좌석 배치
-// - 1층: 강사 4명 (일반강의장1·2, 강사실, 전산강의장1)
+// - 1층: 강사 4명 (일반강의장, 전산강의장1·2, 강사실)
 // - 7·8·9층: 실장·팀장 (돌아다니거나 팀장석에 앉음) + 코치 (상담석에 앉음)
 // - 이름·대사·자리는 여기서 고치면 됩니다. 좌표는 웹 좌표 [x, 0, z] (블렌더 X, -Y)
 
@@ -101,6 +101,7 @@ function pickLines(pool, name, n = 2) {
 const FLOORS = {
   "7F": {
     chief: "손설희",
+    game: "shell", // 말을 걸면 "야바위 게임" (회원만)
     leaders: [
       ["박은지", { seat: ["S", 2] }],
       ["전솔지", { walk: "north" }],
@@ -116,6 +117,7 @@ const FLOORS = {
   },
   "8F": {
     chief: "이준민",
+    game: "rps", // 말을 걸면 "가위바위보 하기" (회원만)
     leaders: [
       ["강승희", { seat: ["S", 1] }],
       ["김은령", { walk: "north" }],
@@ -156,6 +158,7 @@ for (const [floor, cfg] of Object.entries(FLOORS)) {
     id: `staff_${floor}_${cfg.chief}`, floor, name: chiefName, ...look(cfg.chief),
     path: route("chief"),
     dialog: [`안녕하세요, ${n}층 상담실 ${chiefName}이에요.`, ...pickLines(LINES.chief, cfg.chief)],
+    ...(cfg.game ? { game: cfg.game } : {}),
   });
   cfg.leaders.forEach(([who, where], i) => {
     const name = `${who} 팀장`;
@@ -177,25 +180,25 @@ for (const [floor, cfg] of Object.entries(FLOORS)) {
 STAFF.push(
   {
     id: "staff_1F_현지우", floor: "1F", name: "현지우 강사", ...look("현지우"),
-    position: [15.7, 0, -8.3], rotationY: -Math.PI / 2, // 일반강의장1 단상 앞
+    position: [15.4, 0, -22.45], rotationY: 0, // 일반강의장 교수대 뒤 (교육생 쪽을 바라봄)
     dialog: [
-      "여기는 일반강의장1이에요. 신입 상담사 입문 교육이 열리는 곳이죠.",
+      "여기는 일반강의장이에요. 신입 상담사 이론 교육이 열리는 곳이죠.",
       "처음엔 모두 서툴러요. 질문을 많이 하는 사람이 제일 빨리 늘어요!",
       "오늘 배운 한 가지만 꼭 기억해도 성공이에요. 화이팅!",
     ],
   },
   {
     id: "staff_1F_윤규리", floor: "1F", name: "윤규리 강사", ...look("윤규리"),
-    position: [10.1, 0, -12.6], rotationY: Math.PI / 2, // 일반강의장2 입구 쪽 (실습석을 바라봄)
+    position: [15.4, 0, -15.45], rotationY: 0, // 전산강의장1 교수대 뒤 (교육생 쪽을 바라봄)
     dialog: [
-      "일반강의장2는 듀얼 모니터로 실제 상담 시스템을 실습하는 곳이에요.",
+      "전산강의장1은 상담석처럼 모니터와 PC로 실제 상담 시스템을 실습하는 곳이에요.",
       "실습에서 많이 틀려 볼수록 실전에서 덜 틀려요. 겁먹지 말아요!",
       "모니터 두 개, 처음엔 정신없지만 금방 익숙해져요 :)",
     ],
   },
   {
     id: "staff_1F_양인실", floor: "1F", name: "양인실 강사", ...look("양인실"),
-    position: [12.2, 0, -17.3], rotationY: Math.PI, pose: "sit", // 강사실 가운데 책상
+    position: [3.7, 0, -14.75], rotationY: 0, pose: "sit", // 강사실 가운데 책상
     dialog: [
       "여기는 강사실이에요. 교육 자료를 준비하고 1:1 코칭도 해요.",
       "교육 중에 힘든 점이 있으면 언제든 강사실 문을 두드려요!",
@@ -204,9 +207,9 @@ STAFF.push(
   },
   {
     id: "staff_1F_류가영", floor: "1F", name: "류가영 강사", ...look("류가영"),
-    position: [11.3, 0, 0.5], rotationY: Math.PI, // 전산강의장1 입구 쪽 (교육생 쪽을 바라봄)
+    position: [15.4, 0, -10.45], rotationY: 0, // 전산강의장2 교수대 뒤 (교육생 쪽을 바라봄)
     dialog: [
-      "전산강의장1에서는 상담 프로그램 사용법을 배워요.",
+      "전산강의장2에서는 상담 프로그램 사용법을 배워요.",
       "공감상담의 첫걸음은 고객의 말을 끝까지 듣는 거예요!",
       "교육 수료하는 날까지 제가 옆에서 응원할게요. 할 수 있어요!",
     ],
@@ -233,7 +236,7 @@ STAFF.push(
     ["택배, 우편물, 회의실 예약은 총무팀으로!", "오늘도 다들 안전하게 근무하세요. 응원합니다!"], true),
   six("박남수", "PM", { position: [-2.17, 0, -12.35], rotationY: -SEAT_W, pose: "sit" }, // 상담석 (동쪽 자리)
     ["센터를 움직이는 건 숫자와 통계, 꼼꼼한 실적 확인이 필요해요."], true),
-  six("허유경", "센터장", { position: [-3.85, 0, -15.52], rotationY: 0, pose: "sit" }, // 팀장석
+  six("허유경", "센터장", { position: [-3.85, 0, -15.52], rotationY: 0, pose: "sit", game: "omok" }, // 팀장석
     ["여러분 한 사람 한 사람이 우리 센터의 자랑이에요.", "고객도, 직원도 행복한 센터를 함께 만들어 가요!"]),
   { ...six("류희숙", "재무회계", { position: [-4.13, 0, -12.35], rotationY: SEAT_W, pose: "sit" },
     ["경비 처리는 기한 안에 부탁드려요~", "숫자는 정직해요. 꼼꼼함이 신뢰를 만듭니다!"]), model: LONG },
@@ -270,6 +273,16 @@ STAFF.push(
   nine("김예진", "업무지원팀", "north", 0.6,
     ["업무 시스템이나 지원이 필요하면 언제든 불러 주세요!", "여러분이 상담에만 집중할 수 있게 뒤에서 열심히 돕고 있어요."], LONG),
 );
+
+// 🎮 미니게임 NPC (회원 전용 퀘스트)
+// - 9층 백영주 실장(새로 추가, 여성): 📞 콜 받기 반응속도 게임
+STAFF.push({
+  id: "staff_9F_백영주", floor: "9F", name: "백영주 실장", model: "Character_Female_LongHair", color: "#2bb3a3",
+  path: route("south"), pathOffset: 0.55, game: "reaction",
+  dialog: ["안녕하세요, 9층 상담실 백영주 실장이에요.", "상담사에게 제일 중요한 것 중 하나가 빠른 응대예요. 콜이 울리면 바로 받는 거죠!"],
+});
+// - 7층 김윤혜 실장: 💗 공감 응대 챌린지
+for (const s of STAFF) if (s.id === "staff_7F_김윤혜") s.game = "empathy";
 
 export const STAFF_NPCS = STAFF;
 

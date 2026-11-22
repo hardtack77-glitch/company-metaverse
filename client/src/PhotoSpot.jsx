@@ -91,7 +91,7 @@ export default function PhotoSpot({ zone, open, setOpen }) {
 
 const S = {
   card: {
-    position: "absolute", top: "calc(136px + env(safe-area-inset-top))", left: 12, zIndex: 12, display: "flex", alignItems: "center", gap: 8,
+    position: "absolute", top: "calc(176px + env(safe-area-inset-top))", left: 12, zIndex: 12, display: "flex", alignItems: "center", gap: 8,
     padding: 6, paddingRight: 12, maxWidth: "calc(100% - 24px)", border: "2px solid #fff", borderRadius: 12, background: "rgba(17,24,39,.75)", color: "#fff",
     boxShadow: "0 4px 12px rgba(0,0,0,.35)", textAlign: "left",
   },

@@ -1,5 +1,5 @@
 // 회사 메타버스 실시간 서버 (Node.js + Socket.IO)
-// - 최대 50명 실시간 위치 공유 (같은 층끼리만 위치를 주고받아 트래픽 절약)
+// - 최대 70명 실시간 위치 공유 (같은 층끼리만 위치를 주고받아 트래픽 절약)
 // - 1F / 6F / 7F·8F·9F(상담실) 층 + 엘리베이터 이동
 // - 말풍선 채팅 (같은 층)
 // - 보물 찾기: 서버가 층·거리·중복을 검증하고 Acknowledgement(콜백)로 결과 응답
@@ -11,13 +11,15 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import { Server } from "socket.io";
 import crypto from "crypto";
+import { N as OMOK_N, emptyBoard, isWin, aiMove } from "./omok.js";
+import { EMPATHY_QUESTIONS, EMPATHY_POINTS, EMPATHY_COUNT } from "./empathy.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // 배포 시: client 를 빌드한 결과물(client/dist)을 이 서버가 같이 보내 줌 → 주소 하나로 접속
 const CLIENT_DIST = path.resolve(__dirname, "../client/dist");
 
 const PORT = process.env.PORT || 3001;
-const MAX_PLAYERS = 50;
+const MAX_PLAYERS = 70;
 const CLAIM_DISTANCE = 2.0; // 보물과 이 거리(m) 안에 있어야 획득 가능
 const ELEVATOR_DISTANCE = 2.0; // 엘리베이터 앞 파란 마커에서 이 거리 안에 있어야 층 이동 가능
 
@@ -57,7 +59,7 @@ const ELEVATOR_EXITS = {
 // 보물 10종 (1·6·7·8·9층 2개씩) — 블렌더 맵의 관련 물체 옆 빈자리
 const treasures = {
   t1_coupon: { id: "t1_coupon", floor: "1F", name: "카페 쿠폰", position: [11.9, 0.5, 3.9] }, // 카페테리아 창가
-  t1_headset: { id: "t1_headset", floor: "1F", name: "황금 헤드셋", position: [12.4, 0.5, -16.3] }, // 강사실
+  t1_headset: { id: "t1_headset", floor: "1F", name: "황금 헤드셋", position: [2.4, 0.5, -16.6] }, // 강사실 (원형 테이블 옆)
   t6_ksqi: { id: "t6_ksqi", floor: "6F", name: "KSQI 인증패", position: [-15.4, 0.5, 10.25] },
   t6_dino: { id: "t6_dino", floor: "6F", name: "노란 공룡 인형", position: [-0.6, 0.5, 5.8] },
   t7_cushion: { id: "t7_cushion", floor: "7F", name: "빨간 하트 쿠션", position: [5.33, 0.5, -1.0] },
@@ -200,6 +202,287 @@ app.post("/admin/reply", express.urlencoded({ extended: false }), async (req, re
   res.redirect(back);
 });
 
+/* ───────── ✊ 가위바위보 (회원 전용 퀘스트) ─────────
+   - 결과는 서버가 무작위로 정하고, 한 판마다 Firestore "rpsGames" 에 기록
+   - 관리자 기록 보기: /admin/rps?key=관리자키  (엑셀: &format=csv)                       */
+const rpsGames = []; // { id, empNo, name, npcId, npcName, floor, player, npc, result, at }
+const RPS = ["rock", "scissors", "paper"];
+const RPS_KO = { rock: "바위", scissors: "가위", paper: "보" };
+const RESULT_KO = { win: "승", lose: "패", draw: "무" };
+const rpsJudge = (a, b) => (a === b ? "draw" : (a === "rock" && b === "scissors") || (a === "scissors" && b === "paper") || (a === "paper" && b === "rock") ? "win" : "lose");
+function rpsStats(empNo) {
+  const mine = rpsGames.filter((g) => g.empNo === empNo).sort((a, b) => (a.at < b.at ? 1 : -1));
+  const c = { win: 0, lose: 0, draw: 0 };
+  mine.forEach((g) => (c[g.result] += 1));
+  let streak = 0;
+  for (const g of mine) {
+    if (g.result === "win") streak += 1;
+    else if (g.result === "lose") break;
+  }
+  return { total: mine.length, ...c, streak, recent: mine.slice(0, 10).map((g) => ({ result: g.result, at: g.at })) };
+}
+const RPS_LINES = {
+  win: ["와, 제가 졌네요! 실력 인정합니다 👏", "오늘 운이 좋으시네요! 상담도 이렇게 술술 풀리길!", "제가 졌어요… 한 판 더 해요!"],
+  lose: ["제가 이겼네요! 다시 도전해 보세요 😄", "아깝다! 다음엔 이길 수 있어요!", "이번엔 제 승리! 포기하지 마세요 💪"],
+  draw: ["마음이 통했네요! 🤝", "비겼어요! 한 번 더?", "우리 생각이 같았네요 ㅎㅎ"],
+};
+
+app.get("/admin/rps", (req, res) => {
+  if (!ADMIN_KEY) return res.status(403).send("관리자 키(ADMIN_KEY 환경변수)가 아직 설정되지 않았어요.");
+  if (req.query.key !== ADMIN_KEY) return res.status(403).send("관리자 키가 맞지 않아요.");
+  const fmt = (iso) => new Date(iso).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+  const list = [...rpsGames].sort((a, b) => (a.at < b.at ? 1 : -1));
+  if (req.query.format === "csv") {
+    const rows = [["진행일시", "사번", "이름", "상대 NPC", "층", "나", "NPC", "결과"], ...list.map((g) => [fmt(g.at), g.empNo, g.name, g.npcName, g.floor, RPS_KO[g.player], RPS_KO[g.npc], RESULT_KO[g.result]])];
+    const csv = "\uFEFF" + rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=rps_games.csv");
+    return res.send(csv);
+  }
+  // 사람별 순위 (승 많은 순)
+  const by = new Map();
+  for (const g of rpsGames) {
+    const s = by.get(g.empNo) || { empNo: g.empNo, name: g.name, total: 0, win: 0, lose: 0, draw: 0, last: "" };
+    s.total += 1;
+    s[g.result] += 1;
+    if (g.at > s.last) s.last = g.at;
+    by.set(g.empNo, s);
+  }
+  const rank = [...by.values()].sort((a, b) => b.win - a.win || a.lose - b.lose);
+  const k = encodeURIComponent(ADMIN_KEY);
+  res.send(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>가위바위보 기록</title>
+<style>body{font-family:system-ui,sans-serif;margin:16px}table{border-collapse:collapse;width:100%;font-size:14px;margin-bottom:24px}td,th{border:1px solid #ddd;padding:6px 8px;text-align:left}th{background:#f5f5f5}</style></head>
+<body><h1>✊ 가위바위보 기록 (${rpsGames.length}판)</h1><p><a href="?key=${k}&format=csv">엑셀(CSV)로 받기</a> · <a href="/admin/messages?key=${k}">💌 메시지함</a> · <a href="/admin/users?key=${k}">👥 회원 목록</a></p>
+<h2>사람별 순위</h2><table><tr><th>순위</th><th>이름(사번)</th><th>판수</th><th>승</th><th>무</th><th>패</th><th>승률</th><th>마지막 게임</th></tr>${
+    rank.map((s, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(s.name)} (${s.empNo})</td><td>${s.total}</td><td>${s.win}</td><td>${s.draw}</td><td>${s.lose}</td><td>${Math.round((s.win / s.total) * 100)}%</td><td>${fmt(s.last)}</td></tr>`).join("") || "<tr><td colspan=8>아직 기록이 없어요.</td></tr>"
+  }</table>
+<h2>전체 기록 (최근 300판)</h2><table><tr><th>진행일시</th><th>이름(사번)</th><th>상대</th><th>나</th><th>NPC</th><th>결과</th></tr>${
+    list.slice(0, 300).map((g) => `<tr><td>${fmt(g.at)}</td><td>${escapeHtml(g.name)} (${g.empNo})</td><td>${escapeHtml(g.npcName)} · ${g.floor}</td><td>${RPS_KO[g.player]}</td><td>${RPS_KO[g.npc]}</td><td>${RESULT_KO[g.result]}</td></tr>`).join("")
+  }</table></body></html>`);
+});
+
+/* ───────── ⚫ 오목 대결 (회원 전용) ─────────
+   - 판은 서버가 들고 있고 NPC 수도 서버가 계산 (조작 방지)
+   - 한 판이 끝날 때마다 Firestore "omokGames" 에 기록 (시작·종료 일시, 수, 결과, 기권 여부)
+   - 관리자: /admin/omok?key=관리자키 (&format=csv)                                         */
+const omokGames = [];
+const OMOK_RESULT_KO = { win: "승", lose: "패", draw: "무" };
+function omokStats(empNo) {
+  const mine = omokGames.filter((g) => g.empNo === empNo).sort((a, b) => (a.endAt < b.endAt ? 1 : -1));
+  const c = { win: 0, lose: 0, draw: 0 };
+  mine.forEach((g) => (c[g.result] += 1));
+  const wins = mine.filter((g) => g.result === "win");
+  return { total: mine.length, ...c, best: wins.length ? Math.min(...wins.map((g) => g.moves)) : null, recent: mine.slice(0, 10).map((g) => ({ result: g.result, at: g.endAt, moves: g.moves })) };
+}
+function finishOmok(p, game, result, resigned = false) {
+  const g = {
+    id: `${Date.now().toString(36)}_${crypto.randomBytes(3).toString("hex")}`, empNo: p.empNo, name: p.name,
+    npcId: game.npcId, npcName: game.npcName, floor: p.floor, result, resigned,
+    moves: game.moves.filter((m) => m.c === 1).length, startAt: game.startAt, endAt: new Date().toISOString(),
+    record: game.moves.map((m) => `${m.c === 1 ? "B" : "W"}${m.x},${m.y}`).join(" "),
+  };
+  omokGames.push(g);
+  if (db) db.collection("omokGames").doc(g.id).set(g).catch((e) => console.error("오목 저장 실패:", e.message));
+  console.log(`[오목] ${p.name}(${p.empNo}) vs ${g.npcName} → ${OMOK_RESULT_KO[result]}${resigned ? " (기권)" : ""} · ${g.moves}수`);
+  return omokStats(p.empNo);
+}
+const OMOK_LINES = {
+  win: ["와… 제가 졌네요! 실력이 대단하세요 👏", "졌습니다! 상담도 이렇게 수를 잘 읽으시겠죠?", "인정! 다음엔 저도 더 열심히 둘게요."],
+  lose: ["제가 이겼네요! 다시 도전해 보세요 😄", "아깝다! 한 수만 더 막았으면요.", "이번엔 제 승리! 언제든 재도전 환영이에요."],
+  draw: ["판이 꽉 찼네요! 무승부예요 🤝"],
+};
+
+app.get("/admin/omok", (req, res) => {
+  if (!ADMIN_KEY) return res.status(403).send("관리자 키(ADMIN_KEY 환경변수)가 아직 설정되지 않았어요.");
+  if (req.query.key !== ADMIN_KEY) return res.status(403).send("관리자 키가 맞지 않아요.");
+  const fmt = (iso) => new Date(iso).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+  const list = [...omokGames].sort((a, b) => (a.endAt < b.endAt ? 1 : -1));
+  if (req.query.format === "csv") {
+    const rows = [["시작일시", "종료일시", "사번", "이름", "상대 NPC", "층", "결과", "기권", "둔 수", "기보"], ...list.map((g) => [fmt(g.startAt), fmt(g.endAt), g.empNo, g.name, g.npcName, g.floor, OMOK_RESULT_KO[g.result], g.resigned ? "기권" : "", g.moves, g.record])];
+    const csv = "\uFEFF" + rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=omok_games.csv");
+    return res.send(csv);
+  }
+  const by = new Map();
+  for (const g of omokGames) {
+    const s = by.get(g.empNo) || { empNo: g.empNo, name: g.name, total: 0, win: 0, lose: 0, draw: 0, best: null, last: "" };
+    s.total += 1;
+    s[g.result] += 1;
+    if (g.result === "win" && (s.best === null || g.moves < s.best)) s.best = g.moves;
+    if (g.endAt > s.last) s.last = g.endAt;
+    by.set(g.empNo, s);
+  }
+  const rank = [...by.values()].sort((a, b) => b.win - a.win || (a.best ?? 999) - (b.best ?? 999));
+  const k = encodeURIComponent(ADMIN_KEY);
+  res.send(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>오목 기록</title>
+<style>body{font-family:system-ui,sans-serif;margin:16px}table{border-collapse:collapse;width:100%;font-size:14px;margin-bottom:24px}td,th{border:1px solid #ddd;padding:6px 8px;text-align:left}th{background:#f5f5f5}</style></head>
+<body><h1>⚫ 오목 대결 기록 (${omokGames.length}판)</h1><p><a href="?key=${k}&format=csv">엑셀(CSV)로 받기</a> · <a href="/admin/rps?key=${k}">✊ 가위바위보</a> · <a href="/admin/messages?key=${k}">💌 메시지함</a> · <a href="/admin/users?key=${k}">👥 회원 목록</a></p>
+<h2>사람별 순위</h2><table><tr><th>순위</th><th>이름(사번)</th><th>판수</th><th>승</th><th>무</th><th>패</th><th>최단 승리</th><th>마지막 게임</th></tr>${
+    rank.map((s, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(s.name)} (${s.empNo})</td><td>${s.total}</td><td>${s.win}</td><td>${s.draw}</td><td>${s.lose}</td><td>${s.best ? s.best + "수" : "-"}</td><td>${fmt(s.last)}</td></tr>`).join("") || "<tr><td colspan=8>아직 기록이 없어요.</td></tr>"
+  }</table>
+<h2>전체 기록 (최근 300판)</h2><table><tr><th>종료일시</th><th>이름(사번)</th><th>상대</th><th>결과</th><th>둔 수</th></tr>${
+    list.slice(0, 300).map((g) => `<tr><td>${fmt(g.endAt)}</td><td>${escapeHtml(g.name)} (${g.empNo})</td><td>${escapeHtml(g.npcName)} · ${g.floor}</td><td>${OMOK_RESULT_KO[g.result]}${g.resigned ? " (기권)" : ""}</td><td>${g.moves}</td></tr>`).join("")
+  }</table></body></html>`);
+});
+
+/* ───────── 🥤 야바위 (회원 전용) — 3판, 뒤로 갈수록 빠르고 많이 섞음 ─────────
+   - 섞는 순서·정답은 서버가 정하고 확인 → 한 게임(3판) 끝나면 Firestore "shellGames" 에 기록
+   - 관리자: /admin/shell?key=관리자키 (&format=csv)                                          */
+const shellGames = [];
+const SHELL_LEVELS = [
+  { swaps: 4, ms: 650, label: "1판 · 연습" },
+  { swaps: 8, ms: 420, label: "2판 · 보통" },
+  { swaps: 13, ms: 270, label: "3판 · 어려움" },
+];
+function shellStats(empNo) {
+  const mine = shellGames.filter((g) => g.empNo === empNo).sort((a, b) => (a.at < b.at ? 1 : -1));
+  return {
+    total: mine.length, perfect: mine.filter((g) => g.score === 3).length,
+    best: mine.length ? Math.max(...mine.map((g) => g.score)) : 0,
+    hits: mine.reduce((s, g) => s + g.score, 0), recent: mine.slice(0, 10).map((g) => ({ score: g.score, at: g.at })),
+  };
+}
+
+app.get("/admin/shell", (req, res) => {
+  if (!ADMIN_KEY) return res.status(403).send("관리자 키(ADMIN_KEY 환경변수)가 아직 설정되지 않았어요.");
+  if (req.query.key !== ADMIN_KEY) return res.status(403).send("관리자 키가 맞지 않아요.");
+  const fmt = (iso) => new Date(iso).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+  const list = [...shellGames].sort((a, b) => (a.at < b.at ? 1 : -1));
+  const ox = (g) => g.rounds.map((r) => (r ? "O" : "X")).join(" ");
+  if (req.query.format === "csv") {
+    const rows = [["진행일시", "사번", "이름", "상대 NPC", "층", "1판", "2판", "3판", "맞힌 수"], ...list.map((g) => [fmt(g.at), g.empNo, g.name, g.npcName, g.floor, ...g.rounds.map((r) => (r ? "O" : "X")), g.score])];
+    const csv = "\uFEFF" + rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=shell_games.csv");
+    return res.send(csv);
+  }
+  const by = new Map();
+  for (const g of shellGames) {
+    const s = by.get(g.empNo) || { empNo: g.empNo, name: g.name, total: 0, perfect: 0, hits: 0, last: "" };
+    s.total += 1;
+    s.hits += g.score;
+    if (g.score === 3) s.perfect += 1;
+    if (g.at > s.last) s.last = g.at;
+    by.set(g.empNo, s);
+  }
+  const rank = [...by.values()].sort((a, b) => b.perfect - a.perfect || b.hits / b.total - a.hits / a.total);
+  const k = encodeURIComponent(ADMIN_KEY);
+  res.send(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>야바위 기록</title>
+<style>body{font-family:system-ui,sans-serif;margin:16px}table{border-collapse:collapse;width:100%;font-size:14px;margin-bottom:24px}td,th{border:1px solid #ddd;padding:6px 8px;text-align:left}th{background:#f5f5f5}</style></head>
+<body><h1>🥤 야바위 기록 (${shellGames.length}게임)</h1><p><a href="?key=${k}&format=csv">엑셀(CSV)로 받기</a> · <a href="/admin/omok?key=${k}">⚫ 오목</a> · <a href="/admin/rps?key=${k}">✊ 가위바위보</a> · <a href="/admin/messages?key=${k}">💌 메시지함</a></p>
+<h2>사람별 순위</h2><table><tr><th>순위</th><th>이름(사번)</th><th>게임 수</th><th>3판 모두 성공</th><th>맞힌 판 / 전체 판</th><th>마지막 게임</th></tr>${
+    rank.map((s, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(s.name)} (${s.empNo})</td><td>${s.total}</td><td>${s.perfect}</td><td>${s.hits} / ${s.total * 3}</td><td>${fmt(s.last)}</td></tr>`).join("") || "<tr><td colspan=6>아직 기록이 없어요.</td></tr>"
+  }</table>
+<h2>전체 기록 (최근 300게임)</h2><table><tr><th>진행일시</th><th>이름(사번)</th><th>상대</th><th>1·2·3판</th><th>맞힌 수</th></tr>${
+    list.slice(0, 300).map((g) => `<tr><td>${fmt(g.at)}</td><td>${escapeHtml(g.name)} (${g.empNo})</td><td>${escapeHtml(g.npcName)} · ${g.floor}</td><td>${ox(g)}</td><td>${g.score} / 3</td></tr>`).join("")
+  }</table></body></html>`);
+});
+
+/* ───────── 📞 콜 받기 반응속도 · 💗 공감 응대 챌린지 (회원 전용) ─────────
+   - 반응속도: 5콜, 벨 울리는 시점은 서버가 정함. 부정출발(벨 전에 터치)은 +500ms 벌점
+   - 공감 응대: 문제 은행(server/empathy.js)에서 5문제, 정답은 서버에만 → 100점 만점
+   - 기록: Firestore "reactionGames" / "empathyGames"
+   - 관리자: /admin/reaction?key=… · /admin/empathy?key=… (&format=csv)                       */
+const reactionGames = [];
+const empathyGames = [];
+const REACTION_CALLS = 5;
+const FALSE_START_PENALTY = 500;
+const csvOf = (rows) => "\uFEFF" + rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+const kstFmt = (iso) => new Date(iso).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+function reactionStats(empNo) {
+  const mine = reactionGames.filter((g) => g.empNo === empNo);
+  return { total: mine.length, best: mine.length ? Math.min(...mine.map((g) => g.avg)) : null, fastest: mine.length ? Math.min(...mine.map((g) => g.fastest)) : null };
+}
+function empathyStats(empNo) {
+  const mine = empathyGames.filter((g) => g.empNo === empNo);
+  return { total: mine.length, best: mine.length ? Math.max(...mine.map((g) => g.score)) : null, perfect: mine.filter((g) => g.score === 100).length };
+}
+function adminGamePage(req, res, { title, file, list, head, row, rankHead, rank }) {
+  if (!ADMIN_KEY) return res.status(403).send("관리자 키(ADMIN_KEY 환경변수)가 아직 설정되지 않았어요.");
+  if (req.query.key !== ADMIN_KEY) return res.status(403).send("관리자 키가 맞지 않아요.");
+  const sorted = [...list].sort((a, b) => (a.at < b.at ? 1 : -1));
+  if (req.query.format === "csv") {
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename=${file}.csv`);
+    return res.send(csvOf([head, ...sorted.map(row)]));
+  }
+  const k = encodeURIComponent(ADMIN_KEY);
+  const td = (cells) => cells.map((c) => `<td>${escapeHtml(String(c ?? ""))}</td>`).join("");
+  res.send(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
+<style>body{font-family:system-ui,sans-serif;margin:16px}table{border-collapse:collapse;width:100%;font-size:14px;margin-bottom:24px}td,th{border:1px solid #ddd;padding:6px 8px;text-align:left}th{background:#f5f5f5}</style></head>
+<body><h1>${title} (${list.length}회)</h1><p><a href="?key=${k}&format=csv">엑셀(CSV)로 받기</a> · <a href="/admin/rps?key=${k}">✊ 가위바위보</a> · <a href="/admin/omok?key=${k}">⚫ 오목</a> · <a href="/admin/shell?key=${k}">🥤 야바위</a> · <a href="/admin/reaction?key=${k}">📞 반응속도</a> · <a href="/admin/empathy?key=${k}">💗 공감응대</a></p>
+<h2>사람별 순위</h2><table><tr>${["순위", ...rankHead].map((h) => `<th>${h}</th>`).join("")}</tr>${rank.map((r, i) => `<tr><td>${i + 1}</td>${td(r)}</tr>`).join("") || "<tr><td>아직 기록이 없어요.</td></tr>"}</table>
+<h2>전체 기록 (최근 300회)</h2><table><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr>${sorted.slice(0, 300).map((g) => `<tr>${td(row(g))}</tr>`).join("")}</table></body></html>`);
+}
+const bestBy = (list, key, pick) => {
+  const m = new Map();
+  for (const g of list) {
+    const s = m.get(g.empNo) || { empNo: g.empNo, name: g.name, n: 0, best: null, last: "" };
+    s.n += 1;
+    s.best = s.best === null ? g[key] : pick(s.best, g[key]);
+    if (g.at > s.last) s.last = g.at;
+    s.name = g.name;
+    m.set(g.empNo, s);
+  }
+  return [...m.values()];
+};
+app.get("/admin/reaction", (req, res) =>
+  adminGamePage(req, res, {
+    title: "📞 콜 받기 반응속도 기록", file: "reaction_games", list: reactionGames,
+    head: ["진행일시", "사번", "이름", "상대 NPC", "평균(ms)", "가장 빠름(ms)", "부정출발", "5콜 기록(ms)"],
+    row: (g) => [kstFmt(g.at), g.empNo, g.name, g.npcName, g.avg, g.fastest, g.falseStarts, g.times.join(" / ")],
+    rankHead: ["이름(사번)", "도전 횟수", "최고 평균(ms)", "마지막 도전"],
+    rank: bestBy(reactionGames, "avg", Math.min).sort((a, b) => a.best - b.best).map((s) => [`${s.name} (${s.empNo})`, s.n, s.best, kstFmt(s.last)]),
+  })
+);
+app.get("/admin/empathy", (req, res) =>
+  adminGamePage(req, res, {
+    title: "💗 공감 응대 챌린지 기록", file: "empathy_games", list: empathyGames,
+    head: ["진행일시", "사번", "이름", "상대 NPC", "점수", "최고 답변 수", "문제·선택"],
+    row: (g) => [kstFmt(g.at), g.empNo, g.name, g.npcName, g.score, g.bestCount, g.answers.map((a) => `${a.q}:${a.pick}`).join(" ")],
+    rankHead: ["이름(사번)", "도전 횟수", "최고 점수", "마지막 도전"],
+    rank: bestBy(empathyGames, "score", Math.max).sort((a, b) => b.best - a.best).map((s) => [`${s.name} (${s.empNo})`, s.n, s.best, kstFmt(s.last)]),
+  })
+);
+
+/* ───────── 🏆 랭킹 게시판 (게임별 TOP 10 · 이번 주 / 전체) ───────── */
+function weekStartIso() {
+  const kst = new Date(Date.now() + 9 * 3600000); // KST 기준 월요일 0시
+  const day = (kst.getUTCDay() + 6) % 7;
+  kst.setUTCHours(0, 0, 0, 0);
+  kst.setUTCDate(kst.getUTCDate() - day);
+  return new Date(kst.getTime() - 9 * 3600000).toISOString();
+}
+function buildRankings(period, myEmp) {
+  const since = period === "week" ? weekStartIso() : "";
+  const inP = (list, key = "at") => list.filter((g) => (g[key] || "") >= since);
+  const agg = (list, keyOf) => {
+    const m = new Map();
+    for (const g of list) {
+      const s = m.get(g.empNo) || { empNo: g.empNo, name: g.name, n: 0, v: 0, w: 0 };
+      s.n += 1;
+      keyOf(s, g);
+      s.name = g.name;
+      m.set(g.empNo, s);
+    }
+    return [...m.values()];
+  };
+  const top = (arr, sort, fmt) => {
+    const sorted = arr.sort(sort);
+    const out = sorted.slice(0, 10).map((s, i) => ({ rank: i + 1, name: s.name, value: fmt(s), me: s.empNo === myEmp }));
+    const mi = sorted.findIndex((s) => s.empNo === myEmp);
+    return { top: out, mine: mi >= 0 ? { rank: mi + 1, value: fmt(sorted[mi]) } : null, players: sorted.length };
+  };
+  return {
+    rps: top(agg(inP(rpsGames), (s, g) => { if (g.result === "win") s.v += 1; }), (a, b) => b.v - a.v || a.n - b.n, (s) => `${s.v}승 (${s.n}판)`),
+    omok: top(agg(inP(omokGames, "endAt"), (s, g) => { if (g.result === "win") s.v += 1; }), (a, b) => b.v - a.v || a.n - b.n, (s) => `${s.v}승 (${s.n}판)`),
+    shell: top(agg(inP(shellGames), (s, g) => { if (g.score === 3) s.v += 1; s.w += g.score; }), (a, b) => b.v - a.v || b.w / b.n - a.w / a.n, (s) => `3판 성공 ${s.v}회 · 적중 ${s.w}/${s.n * 3}`),
+    reaction: top(agg(inP(reactionGames), (s, g) => { s.v = s.v ? Math.min(s.v, g.avg) : g.avg; }), (a, b) => a.v - b.v, (s) => `평균 ${s.v}ms`),
+    empathy: top(agg(inP(empathyGames), (s, g) => { s.v = Math.max(s.v, g.score); }), (a, b) => b.v - a.v || a.n - b.n, (s) => `${s.v}점`),
+  };
+}
+
 /* ───────── 회원 (내부 임직원) ─────────
    - 회원가입: 이름 + 사번(숫자 6자리) + 비밀번호 → 비밀번호는 scrypt 로 암호화해서 저장
    - 로그인하면 서명된 토큰을 받아 기기에 저장 → 다음부터 자동 로그인 (30일)
@@ -287,6 +570,20 @@ async function initStorage() {
       if (foundBy[treasureId] && key) foundBy[treasureId].add(key);
     });
     console.log(`✅ 보물 기록: Firestore 연결 (기존 기록 ${snap.size}건 복원)`);
+    for (const [col, arr] of [["reactionGames", reactionGames], ["empathyGames", empathyGames]]) {
+      const snap = await db.collection(col).orderBy("at").limitToLast(5000).get();
+      snap.forEach((doc) => arr.push(doc.data()));
+      console.log(`✅ ${col}: ${snap.size}건 복원`);
+    }
+    const shellSnap = await db.collection("shellGames").orderBy("at").limitToLast(3000).get();
+    shellSnap.forEach((doc) => shellGames.push(doc.data()));
+    console.log(`✅ 야바위 기록: ${shellSnap.size}게임 복원`);
+    const omokSnap = await db.collection("omokGames").orderBy("endAt").limitToLast(3000).get();
+    omokSnap.forEach((doc) => omokGames.push(doc.data()));
+    console.log(`✅ 오목 기록: ${omokSnap.size}판 복원`);
+    const rpsSnap = await db.collection("rpsGames").orderBy("at").limitToLast(5000).get();
+    rpsSnap.forEach((doc) => rpsGames.push(doc.data()));
+    console.log(`✅ 가위바위보 기록: ${rpsSnap.size}판 복원`);
     const userSnap = await db.collection("users").get();
     userSnap.forEach((doc) => users.set(doc.id, doc.data()));
     console.log(`✅ 회원: ${userSnap.size}명 복원`);
@@ -505,6 +802,225 @@ io.on("connection", (socket) => {
   });
   socket.on("npcMessages", (npcId, ack) => {
     if (typeof ack === "function") ack({ ok: true, messages: publicMessages(clean(npcId, 64)) });
+  });
+
+  // 3-0000) 📞 반응속도 · 💗 공감 응대 · 🏆 랭킹
+  const member = (reply) => {
+    const p = players.get(socket.id);
+    if (!p) return reply({ ok: false, message: "입장 후 이용해 주세요." }), null;
+    if (p.guest || !p.empNo) return reply({ ok: false, message: "회원가입한 임직원만 할 수 있어요." }), null;
+    return p;
+  };
+  const saveGame = (col, arr, g) => {
+    arr.push(g);
+    if (db) db.collection(col).doc(g.id).set(g).catch((e) => console.error(`${col} 저장 실패:`, e.message));
+  };
+  const gid = () => `${Date.now().toString(36)}_${crypto.randomBytes(3).toString("hex")}`;
+  let reaction = null;
+  socket.on("reactionStart", ({ npcId, npcName } = {}, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = member(reply);
+    if (!p) return;
+    const delays = Array.from({ length: REACTION_CALLS }, () => 1200 + crypto.randomInt(2600)); // 벨이 울리기까지 1.2~3.8초
+    reaction = { npcId: clean(npcId, 60), npcName: clean(npcName, 30) || "NPC", delays, startedAt: Date.now() };
+    reply({ ok: true, delays, stats: reactionStats(p.empNo) });
+  });
+  socket.on("reactionSubmit", ({ times, falseStarts } = {}, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = member(reply);
+    if (!p) return;
+    if (!reaction) return reply({ ok: false, message: "새 게임을 시작해 주세요." });
+    const fs = Math.max(0, Math.min(20, Number(falseStarts) || 0));
+    const ok = Array.isArray(times) && times.length === REACTION_CALLS && times.every((t) => Number.isFinite(t) && t >= 80 && t <= 3000);
+    const minElapsed = reaction.delays.reduce((a, b) => a + b, 0) + (ok ? times.reduce((a, b) => a + b, 0) : 0) - 400;
+    if (!ok || Date.now() - reaction.startedAt < minElapsed) {
+      reaction = null;
+      return reply({ ok: false, message: "기록이 올바르지 않아요. 다시 도전해 주세요." });
+    }
+    const t = times.map((x) => Math.round(x));
+    const avg = Math.round((t.reduce((a, b) => a + b, 0) + fs * FALSE_START_PENALTY) / REACTION_CALLS);
+    const g = { id: gid(), empNo: p.empNo, name: p.name, npcId: reaction.npcId, npcName: reaction.npcName, floor: p.floor, times: t, falseStarts: fs, avg, fastest: Math.min(...t), at: new Date().toISOString() };
+    saveGame("reactionGames", reactionGames, g);
+    console.log(`[반응속도] ${p.name}(${p.empNo}) 평균 ${avg}ms (부정출발 ${fs})`);
+    reaction = null;
+    reply({ ok: true, avg, fastest: g.fastest, falseStarts: fs, stats: reactionStats(p.empNo) });
+  });
+
+  let empathy = null;
+  socket.on("empathyStart", ({ npcId, npcName } = {}, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = member(reply);
+    if (!p) return;
+    const pool = [...EMPATHY_QUESTIONS];
+    const qs = [];
+    while (qs.length < EMPATHY_COUNT && pool.length) qs.push(pool.splice(crypto.randomInt(pool.length), 1)[0]);
+    // 보기 순서를 섞고 A/B/C 로만 보냄 (정답 종류는 서버에만)
+    const questions = qs.map((q) => {
+      const kinds = ["best", "ok", "bad"];
+      for (let i = kinds.length - 1; i > 0; i--) {
+        const j = crypto.randomInt(i + 1);
+        [kinds[i], kinds[j]] = [kinds[j], kinds[i]];
+      }
+      return { q, kinds };
+    });
+    empathy = { npcId: clean(npcId, 60), npcName: clean(npcName, 30) || "NPC", questions, idx: 0, score: 0, answers: [] };
+    reply({ ok: true, questions: questions.map(({ q, kinds }) => ({ id: q.id, customer: q.customer, options: kinds.map((k) => q.options[k]) })), stats: empathyStats(p.empNo) });
+  });
+  socket.on("empathyAnswer", ({ pick } = {}, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = member(reply);
+    if (!p) return;
+    if (!empathy || empathy.idx >= empathy.questions.length) return reply({ ok: false, message: "새 게임을 시작해 주세요." });
+    if (![0, 1, 2].includes(pick)) return reply({ ok: false, message: "보기를 골라 주세요." });
+    const { q, kinds } = empathy.questions[empathy.idx];
+    const kind = kinds[pick];
+    const points = EMPATHY_POINTS[kind];
+    empathy.score += points;
+    empathy.answers.push({ q: q.id, pick: kind });
+    empathy.idx += 1;
+    const base = { ok: true, kind, points, best: kinds.indexOf("best"), why: q.why, score: empathy.score };
+    if (empathy.idx < empathy.questions.length) return reply({ ...base, done: false });
+    const g = { id: gid(), empNo: p.empNo, name: p.name, npcId: empathy.npcId, npcName: empathy.npcName, floor: p.floor, score: empathy.score, bestCount: empathy.answers.filter((a) => a.pick === "best").length, answers: empathy.answers, at: new Date().toISOString() };
+    saveGame("empathyGames", empathyGames, g);
+    console.log(`[공감응대] ${p.name}(${p.empNo}) ${g.score}점`);
+    empathy = null;
+    reply({ ...base, done: true, stats: empathyStats(p.empNo) });
+  });
+
+  socket.on("rankings", ({ period } = {}, ack) => {
+    const p = players.get(socket.id);
+    if (typeof ack === "function") ack({ ok: true, period: period === "week" ? "week" : "all", data: buildRankings(period === "week" ? "week" : "all", p?.empNo || null) });
+  });
+
+  // 3-000) 야바위 (회원만) — 3판 진행 상태
+  let shell = null;
+  socket.on("shellStart", ({ npcId, npcName } = {}, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = players.get(socket.id);
+    if (!p) return reply({ ok: false, message: "입장 후 이용해 주세요." });
+    if (p.guest || !p.empNo) return reply({ ok: false, message: "야바위 게임은 회원가입한 임직원만 할 수 있어요." });
+    shell = { npcId: clean(npcId, 60), npcName: clean(npcName, 30) || "NPC", round: 0, results: [], answer: null };
+    reply({ ok: true, rounds: SHELL_LEVELS.length, stats: shellStats(p.empNo) });
+  });
+  socket.on("shellRound", (_, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    if (!shell || shell.round >= SHELL_LEVELS.length) return reply({ ok: false, message: "새 게임을 시작해 주세요." });
+    const lv = SHELL_LEVELS[shell.round];
+    const start = crypto.randomInt(3);
+    const swaps = [];
+    let pos = start;
+    for (let i = 0; i < lv.swaps; i++) {
+      const a = crypto.randomInt(3);
+      const b = (a + 1 + crypto.randomInt(2)) % 3;
+      swaps.push([a, b]);
+      if (pos === a) pos = b;
+      else if (pos === b) pos = a;
+    }
+    shell.answer = pos;
+    shell.openAt = Date.now() + 1500 + lv.swaps * lv.ms * 0.9; // 섞기가 끝나기 전엔 못 고름
+    reply({ ok: true, round: shell.round + 1, label: lv.label, start, swaps, ms: lv.ms });
+  });
+  socket.on("shellPick", ({ cup } = {}, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = players.get(socket.id);
+    if (!p || !p.empNo || !shell || shell.answer === null) return reply({ ok: false, message: "새 게임을 시작해 주세요." });
+    if (![0, 1, 2].includes(cup)) return reply({ ok: false, message: "컵을 골라 주세요." });
+    if (Date.now() < shell.openAt) return reply({ ok: false, message: "아직 섞는 중이에요!" });
+    const correct = cup === shell.answer;
+    const answer = shell.answer;
+    shell.results.push(correct);
+    shell.round += 1;
+    shell.answer = null;
+    if (shell.round < SHELL_LEVELS.length) return reply({ ok: true, correct, answer, done: false });
+    const score = shell.results.filter(Boolean).length;
+    const g = {
+      id: `${Date.now().toString(36)}_${crypto.randomBytes(3).toString("hex")}`, empNo: p.empNo, name: p.name,
+      npcId: shell.npcId, npcName: shell.npcName, floor: p.floor, rounds: shell.results, score, at: new Date().toISOString(),
+    };
+    shellGames.push(g);
+    if (db) db.collection("shellGames").doc(g.id).set(g).catch((e) => console.error("야바위 저장 실패:", e.message));
+    console.log(`[야바위] ${p.name}(${p.empNo}) ${g.rounds.map((r) => (r ? "O" : "X")).join("")} → ${score}/3`);
+    shell = null;
+    reply({ ok: true, correct, answer, done: true, score, stats: shellStats(p.empNo) });
+  });
+
+  // 3-00) 오목 (회원만) — 이 접속의 진행 중인 판
+  let omok = null;
+  socket.on("omokStart", ({ npcId, npcName } = {}, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = players.get(socket.id);
+    if (!p) return reply({ ok: false, message: "입장 후 이용해 주세요." });
+    if (p.guest || !p.empNo) return reply({ ok: false, message: "오목 대결은 회원가입한 임직원만 할 수 있어요." });
+    omok = { board: emptyBoard(), moves: [], npcId: clean(npcId, 60), npcName: clean(npcName, 30) || "NPC", startAt: new Date().toISOString(), last: 0 };
+    reply({ ok: true, size: OMOK_N, stats: omokStats(p.empNo) });
+  });
+  socket.on("omokMove", ({ x, y } = {}, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = players.get(socket.id);
+    if (!p || !p.empNo || !omok) return reply({ ok: false, message: "새 게임을 시작해 주세요." });
+    if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= OMOK_N || y >= OMOK_N) return reply({ ok: false, message: "판 안에 두어 주세요." });
+    if (omok.board[y][x]) return reply({ ok: false, message: "이미 돌이 있는 자리예요." });
+    const now = Date.now();
+    if (now - omok.last < 250) return reply({ ok: false, message: "조금만 천천히!" });
+    omok.last = now;
+    const b = omok.board;
+    b[y][x] = 1;
+    omok.moves.push({ c: 1, x, y });
+    const done = (result, ai = null) => {
+      const stats = finishOmok(p, omok, result);
+      omok = null;
+      const lines = OMOK_LINES[result];
+      return reply({ ok: true, ai, result, message: lines[crypto.randomInt(lines.length)], stats });
+    };
+    if (isWin(b, x, y, 1)) return done("win");
+    if (omok.moves.length >= OMOK_N * OMOK_N) return done("draw");
+    const [ax, ay] = aiMove(b, 2, 1);
+    b[ay][ax] = 2;
+    omok.moves.push({ c: 2, x: ax, y: ay });
+    if (isWin(b, ax, ay, 2)) return done("lose", { x: ax, y: ay });
+    if (omok.moves.length >= OMOK_N * OMOK_N) return done("draw", { x: ax, y: ay });
+    reply({ ok: true, ai: { x: ax, y: ay }, result: null });
+  });
+  socket.on("omokResign", (_, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = players.get(socket.id);
+    if (!p || !p.empNo || !omok) return reply({ ok: false });
+    if (!omok.moves.length) {
+      omok = null;
+      return reply({ ok: true, stats: omokStats(p.empNo) });
+    }
+    const stats = finishOmok(p, omok, "lose", true);
+    omok = null;
+    reply({ ok: true, result: "lose", stats });
+  });
+
+  // 3-0) 가위바위보 (회원만) → 결과 기록
+  let lastRps = 0;
+  socket.on("rps", async ({ npcId, npcName, choice } = {}, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = players.get(socket.id);
+    if (!p) return reply({ ok: false, message: "입장 후 이용해 주세요." });
+    if (p.guest || !p.empNo) return reply({ ok: false, message: "가위바위보는 회원가입한 임직원만 할 수 있어요." });
+    if (!RPS.includes(choice)) return reply({ ok: false, message: "가위·바위·보 중에 골라 주세요." });
+    const now = Date.now();
+    if (now - lastRps < 1200) return reply({ ok: false, message: "조금만 천천히! 잠시 후 다시 내 주세요." });
+    lastRps = now;
+    const npc = RPS[crypto.randomInt(3)];
+    const result = rpsJudge(choice, npc);
+    const g = {
+      id: `${now.toString(36)}_${crypto.randomBytes(3).toString("hex")}`, empNo: p.empNo, name: p.name,
+      npcId: clean(npcId, 60), npcName: clean(npcName, 30) || "NPC", floor: p.floor,
+      player: choice, npc, result, at: new Date(now).toISOString(),
+    };
+    rpsGames.push(g);
+    if (db) db.collection("rpsGames").doc(g.id).set(g).catch((e) => console.error("가위바위보 저장 실패:", e.message));
+    const lines = RPS_LINES[result];
+    console.log(`[가위바위보] ${p.name}(${p.empNo}) ${RPS_KO[choice]} vs ${g.npcName} ${RPS_KO[npc]} → ${RESULT_KO[result]}`);
+    reply({ ok: true, npc, result, message: lines[crypto.randomInt(lines.length)], stats: rpsStats(p.empNo) });
+  });
+  socket.on("rpsStats", (_, ack) => {
+    const p = players.get(socket.id);
+    if (typeof ack === "function") ack(p && p.empNo ? { ok: true, stats: rpsStats(p.empNo) } : { ok: false });
   });
 
   // 3-1) 동작(손 흔들기·하이파이브·박수·엄지척·춤·종이비행기) → 같은 층 다른 사람에게 이름만 전달
