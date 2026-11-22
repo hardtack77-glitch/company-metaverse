@@ -1737,7 +1737,7 @@ export default function App() {
               </button>
             </>
           )}
-          {lobbyMsg && <p style={{ color: "#dc2626", fontSize: 13, margin: "12px 0 0" }}>{lobbyMsg}</p>}
+          {lobbyMsg && <p style={{ color: "#dc2626", fontSize: 13, margin: "12px 0 0", whiteSpace: "pre-line" }}>{lobbyMsg}</p>}
         </form>
       </div>
     );

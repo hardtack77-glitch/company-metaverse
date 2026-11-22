@@ -748,7 +748,7 @@ io.on("connection", (socket) => {
       if (authFails >= 5) return reply({ ok: false, message: "시도가 너무 많아요. 잠시 후 새로고침하고 다시 시도해 주세요." });
       if (roster.get(no) !== normName(nm)) {
         authFails += 1;
-        return reply({ ok: false, message: "사원 명단의 사번·이름과 일치하지 않아요. 사번과 이름(실명)을 다시 확인해 주세요." });
+        return reply({ ok: false, message: "사원 명단의 사번·이름과 일치하지 않아요. 사번과 이름(실명)을 다시 확인해 주세요.\n대구센터 소속이 아니신 분은 관리자(김승현M)에게 요청해 주세요." });
       }
     }
     if (users.has(no)) return reply({ ok: false, message: "이미 가입된 사번이에요. 로그인해 주세요." });
