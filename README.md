@@ -182,3 +182,13 @@ client/public/floor_7f.glb
 - 7층 **김윤혜 실장**: 💗 공감 응대 챌린지 — 고객 말에 가장 공감하는 답 고르기 5문제(100점), 문제는 `server/empathy.js` 에서 수정·추가
 - 기록: Firestore `reactionGames` / `empathyGames`, 관리자 `/admin/reaction?key=…`, `/admin/empathy?key=…` (&format=csv)
 - 🏆 랭킹: 오른쪽 위 "랭킹" 단추 → 게임 5종 TOP 10, 이번 주(월요일 0시 초기화)/전체, 내 순위 표시
+
+## ⚾ 숫자야구 (회원 전용)
+- 9층 **김민정 실장**에게 말을 걸면 "⚾ 숫자야구" → 서로 다른 숫자 3개(0~9)를 10번 안에 맞히기 (S/B/OUT 판정)
+- 정답·판정은 서버에서, 끝나면 Firestore `baseballGames` 에 결과·시도 횟수·정답·입력 기록 저장
+- 랭킹: 성공한 게임 중 최소 시도 순 · 관리자 `/admin/baseball?key=…` (&format=csv)
+
+## 🃏 기억력 카드 짝맞추기 (회원 전용)
+- 1층 강사실 **황율산 실장**(새 NPC, 여성, 팀장석에 앉아 있음) → "🃏 카드 짝맞추기": 4×4, LG U+ 서비스 그림 8쌍
+- 카드 배치는 서버에만, 첫 카드를 뒤집는 순간부터 시간 측정, 너무 빠른 연속 뒤집기(0.15초 미만)는 막음
+- 기록: Firestore `memoryGames` (걸린 시간·뒤집은 횟수), 랭킹: 빨리 끝낸 순, 관리자 `/admin/memory?key=…`

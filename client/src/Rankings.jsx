@@ -5,6 +5,8 @@ import { getRankings } from "./socket.js";
 const GAMES = [
   { id: "reaction", label: "📞 콜 받기", where: "9층 백영주 실장", rule: "5콜 평균이 빠른 순" },
   { id: "empathy", label: "💗 공감 응대", where: "7층 김윤혜 실장", rule: "최고 점수 순" },
+  { id: "memory", label: "🃏 짝맞추기", where: "1층 강사실 황율산 실장", rule: "빨리 끝낸 순" },
+  { id: "baseball", label: "⚾ 숫자야구", where: "9층 김민정 실장", rule: "적은 시도로 맞힌 순" },
   { id: "shell", label: "🥤 야바위", where: "7층 손설희 실장", rule: "3판 모두 성공 횟수 순" },
   { id: "omok", label: "⚫ 오목", where: "6층 허유경 센터장", rule: "승리 수 순" },
   { id: "rps", label: "✊ 가위바위보", where: "8층 이준민 실장", rule: "승리 수 순" },

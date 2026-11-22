@@ -16,6 +16,8 @@ import ShellGame from "./ShellGame.jsx";
 import ReactionGame from "./ReactionGame.jsx";
 import EmpathyGame from "./EmpathyGame.jsx";
 import Rankings from "./Rankings.jsx";
+import BaseballGame from "./BaseballGame.jsx";
+import MemoryGame from "./MemoryGame.jsx";
 import PhotoSpot from "./PhotoSpot.jsx";
 import { zoneAt } from "./photoZones.js";
 import { ACTIONS, ACTION_MAP, startAction, cancelAction, actionState, actionPose, onAction, PLANE_RELEASE } from "./actions.js";
@@ -1244,6 +1246,8 @@ export default function App() {
   const [reactionNpc, setReactionNpc] = useState(null); // 콜 받기 반응속도
   const [empathyNpc, setEmpathyNpc] = useState(null); // 공감 응대 챌린지
   const [rankOpen, setRankOpen] = useState(false); // 🏆 랭킹 게시판
+  const [baseballNpc, setBaseballNpc] = useState(null); // 숫자야구
+  const [memoryNpc, setMemoryNpc] = useState(null); // 카드 짝맞추기
   const [chatLines, setChatLines] = useState([]); // 이 층 대화 (최근 30줄)
   const [inboxOpen, setInboxOpen] = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
@@ -1399,7 +1403,7 @@ export default function App() {
       : nearbyTarget?.type === "dart" && floor === DART_SPOT.floor
       ? { type: "dart", data: {} }
       : null;
-  const modalOpen = !!dialog || elevatorOpen || dartOpen || !!recruiter || !!msgTarget || inboxOpen || photoOpen || !!rpsNpc || !!omokNpc || !!shellNpc || !!reactionNpc || !!empathyNpc || rankOpen;
+  const modalOpen = !!dialog || elevatorOpen || dartOpen || !!recruiter || !!msgTarget || inboxOpen || photoOpen || !!rpsNpc || !!omokNpc || !!shellNpc || !!reactionNpc || !!empathyNpc || rankOpen || !!baseballNpc || !!memoryNpc;
   const canInteract = nearby?.data && !modalOpen;
 
   /* ── 상호작용 ── */
@@ -1420,6 +1424,10 @@ export default function App() {
         nearby.data.name,
         nearby.data.game === "rps"
           ? [...nearby.data.dialog, "심심하면 나랑 가위바위보 한 판 할래요? 이기면 기록이 남아요! ✊✌️✋"]
+          : nearby.data.game === "memory"
+          ? [...nearby.data.dialog, "LG U+ 서비스 카드 짝맞추기 한 판 어때요? 🃏 빨리, 적게 뒤집을수록 좋아요!"]
+          : nearby.data.game === "baseball"
+          ? [...nearby.data.dialog, "숫자야구 한 판 할래요? ⚾ 제가 생각한 세 자리 숫자를 10번 안에 맞혀 보세요!"]
           : nearby.data.game === "reaction"
           ? [...nearby.data.dialog, "콜 받기 반응속도 게임 해 볼래요? 📞 벨이 울리면 최대한 빨리 받아 주세요!"]
           : nearby.data.game === "empathy"
@@ -1865,6 +1873,8 @@ export default function App() {
       {shellNpc && <ShellGame npc={shellNpc} onClose={() => setShellNpc(null)} />}
       {reactionNpc && <ReactionGame npc={reactionNpc} onClose={() => setReactionNpc(null)} />}
       {empathyNpc && <EmpathyGame npc={empathyNpc} onClose={() => setEmpathyNpc(null)} />}
+      {memoryNpc && <MemoryGame npc={memoryNpc} onClose={() => setMemoryNpc(null)} />}
+      {baseballNpc && <BaseballGame npc={baseballNpc} onClose={() => setBaseballNpc(null)} />}
       {rankOpen && <Rankings me={me} onClose={() => setRankOpen(false)} />}
       {dartOpen && <DartGame playerName={me.name} onSubmit={submitDart} onClose={() => setDartOpen(false)} />}
 
@@ -1936,6 +1946,34 @@ export default function App() {
           <p style={styles.dialogText}>{dialog.lines[dialog.page]}</p>
           {dialog.npc && dialog.page === dialog.lines.length - 1 ? (
             <div style={styles.dialogActions}>
+              {dialog.npc.game === "memory" && (
+                <button
+                  style={{ ...styles.dialogMsgBtn, background: "#7c3aed" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const npc = dialog.npc;
+                    setDialog(null);
+                    if (me?.guest) openDialog(npc.name, "카드 짝맞추기는 회원가입한 임직원만 할 수 있어요. 로그인하고 다시 와 주세요! 🙂");
+                    else setMemoryNpc(npc);
+                  }}
+                >
+                  🃏 카드 짝맞추기
+                </button>
+              )}
+              {dialog.npc.game === "baseball" && (
+                <button
+                  style={{ ...styles.dialogMsgBtn, background: "#15803d" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const npc = dialog.npc;
+                    setDialog(null);
+                    if (me?.guest) openDialog(npc.name, "숫자야구는 회원가입한 임직원만 할 수 있어요. 로그인하고 다시 와 주세요! 🙂");
+                    else setBaseballNpc(npc);
+                  }}
+                >
+                  ⚾ 숫자야구
+                </button>
+              )}
               {(dialog.npc.game === "reaction" || dialog.npc.game === "empathy") && (
                 <button
                   style={{ ...styles.dialogMsgBtn, background: dialog.npc.game === "reaction" ? "#0891b2" : "#db2777" }}

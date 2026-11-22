@@ -385,6 +385,19 @@ app.get("/admin/shell", (req, res) => {
    - 기록: Firestore "reactionGames" / "empathyGames"
    - 관리자: /admin/reaction?key=… · /admin/empathy?key=… (&format=csv)                       */
 const reactionGames = [];
+const memoryGames = []; // 🃏 카드 짝맞추기: { empNo, name, seconds, moves, at }
+const MEMORY_CARDS = ["📶", "📺", "📱", "🏠", "🎧", "💳", "🛡️", "☁️"]; // 인터넷·U+tv·5G·IoT·상담·요금·보안·클라우드
+function memoryStats(empNo) {
+  const mine = memoryGames.filter((g) => g.empNo === empNo);
+  return { total: mine.length, best: mine.length ? Math.min(...mine.map((g) => g.seconds)) : null, fewest: mine.length ? Math.min(...mine.map((g) => g.moves)) : null };
+}
+const baseballGames = []; // ⚾ 숫자야구: { empNo, name, success, tries, secret, guesses, at }
+const BASEBALL_MAX = 10;
+function baseballStats(empNo) {
+  const mine = baseballGames.filter((g) => g.empNo === empNo);
+  const wins = mine.filter((g) => g.success);
+  return { total: mine.length, wins: wins.length, best: wins.length ? Math.min(...wins.map((g) => g.tries)) : null };
+}
 const empathyGames = [];
 const REACTION_CALLS = 5;
 const FALSE_START_PENALTY = 500;
@@ -411,7 +424,7 @@ function adminGamePage(req, res, { title, file, list, head, row, rankHead, rank 
   const td = (cells) => cells.map((c) => `<td>${escapeHtml(String(c ?? ""))}</td>`).join("");
   res.send(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
 <style>body{font-family:system-ui,sans-serif;margin:16px}table{border-collapse:collapse;width:100%;font-size:14px;margin-bottom:24px}td,th{border:1px solid #ddd;padding:6px 8px;text-align:left}th{background:#f5f5f5}</style></head>
-<body><h1>${title} (${list.length}회)</h1><p><a href="?key=${k}&format=csv">엑셀(CSV)로 받기</a> · <a href="/admin/rps?key=${k}">✊ 가위바위보</a> · <a href="/admin/omok?key=${k}">⚫ 오목</a> · <a href="/admin/shell?key=${k}">🥤 야바위</a> · <a href="/admin/reaction?key=${k}">📞 반응속도</a> · <a href="/admin/empathy?key=${k}">💗 공감응대</a></p>
+<body><h1>${title} (${list.length}회)</h1><p><a href="?key=${k}&format=csv">엑셀(CSV)로 받기</a> · <a href="/admin/rps?key=${k}">✊ 가위바위보</a> · <a href="/admin/omok?key=${k}">⚫ 오목</a> · <a href="/admin/shell?key=${k}">🥤 야바위</a> · <a href="/admin/reaction?key=${k}">📞 반응속도</a> · <a href="/admin/empathy?key=${k}">💗 공감응대</a> · <a href="/admin/baseball?key=${k}">⚾ 숫자야구</a> · <a href="/admin/memory?key=${k}">🃏 짝맞추기</a></p>
 <h2>사람별 순위</h2><table><tr>${["순위", ...rankHead].map((h) => `<th>${h}</th>`).join("")}</tr>${rank.map((r, i) => `<tr><td>${i + 1}</td>${td(r)}</tr>`).join("") || "<tr><td>아직 기록이 없어요.</td></tr>"}</table>
 <h2>전체 기록 (최근 300회)</h2><table><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr>${sorted.slice(0, 300).map((g) => `<tr>${td(row(g))}</tr>`).join("")}</table></body></html>`);
 }
@@ -434,6 +447,24 @@ app.get("/admin/reaction", (req, res) =>
     row: (g) => [kstFmt(g.at), g.empNo, g.name, g.npcName, g.avg, g.fastest, g.falseStarts, g.times.join(" / ")],
     rankHead: ["이름(사번)", "도전 횟수", "최고 평균(ms)", "마지막 도전"],
     rank: bestBy(reactionGames, "avg", Math.min).sort((a, b) => a.best - b.best).map((s) => [`${s.name} (${s.empNo})`, s.n, s.best, kstFmt(s.last)]),
+  })
+);
+app.get("/admin/baseball", (req, res) =>
+  adminGamePage(req, res, {
+    title: "⚾ 숫자야구 기록", file: "baseball_games", list: baseballGames,
+    head: ["진행일시", "사번", "이름", "상대 NPC", "결과", "시도 횟수", "정답", "입력 기록"],
+    row: (g) => [kstFmt(g.at), g.empNo, g.name, g.npcName, g.success ? "성공" : "실패", g.tries, g.secret, g.guesses.join(" ")],
+    rankHead: ["이름(사번)", "도전 횟수", "최소 시도(성공)", "마지막 도전"],
+    rank: bestBy(baseballGames.filter((g) => g.success), "tries", Math.min).sort((a, b) => a.best - b.best).map((s) => [`${s.name} (${s.empNo})`, s.n, `${s.best}번`, kstFmt(s.last)]),
+  })
+);
+app.get("/admin/memory", (req, res) =>
+  adminGamePage(req, res, {
+    title: "🃏 카드 짝맞추기 기록", file: "memory_games", list: memoryGames,
+    head: ["진행일시", "사번", "이름", "상대 NPC", "걸린 시간(초)", "뒤집은 횟수(쌍)"],
+    row: (g) => [kstFmt(g.at), g.empNo, g.name, g.npcName, g.seconds, g.moves],
+    rankHead: ["이름(사번)", "도전 횟수", "최고 기록(초)", "마지막 도전"],
+    rank: bestBy(memoryGames, "seconds", Math.min).sort((a, b) => a.best - b.best).map((s) => [`${s.name} (${s.empNo})`, s.n, s.best, kstFmt(s.last)]),
   })
 );
 app.get("/admin/empathy", (req, res) =>
@@ -479,6 +510,8 @@ function buildRankings(period, myEmp) {
     omok: top(agg(inP(omokGames, "endAt"), (s, g) => { if (g.result === "win") s.v += 1; }), (a, b) => b.v - a.v || a.n - b.n, (s) => `${s.v}승 (${s.n}판)`),
     shell: top(agg(inP(shellGames), (s, g) => { if (g.score === 3) s.v += 1; s.w += g.score; }), (a, b) => b.v - a.v || b.w / b.n - a.w / a.n, (s) => `3판 성공 ${s.v}회 · 적중 ${s.w}/${s.n * 3}`),
     reaction: top(agg(inP(reactionGames), (s, g) => { s.v = s.v ? Math.min(s.v, g.avg) : g.avg; }), (a, b) => a.v - b.v, (s) => `평균 ${s.v}ms`),
+    memory: top(agg(inP(memoryGames), (s, g) => { if (!s.v || g.seconds < s.v || (g.seconds === s.v && g.moves < s.w)) { s.v = g.seconds; s.w = g.moves; } }), (a, b) => a.v - b.v || a.w - b.w, (s) => `${s.v}초 · ${s.w}번`),
+    baseball: top(agg(inP(baseballGames), (s, g) => { if (g.success) { s.w += 1; s.v = s.v ? Math.min(s.v, g.tries) : g.tries; } }).filter((s) => s.w > 0), (a, b) => a.v - b.v || b.w - a.w, (s) => `최소 ${s.v}번 · 성공 ${s.w}회`),
     empathy: top(agg(inP(empathyGames), (s, g) => { s.v = Math.max(s.v, g.score); }), (a, b) => b.v - a.v || a.n - b.n, (s) => `${s.v}점`),
   };
 }
@@ -570,7 +603,7 @@ async function initStorage() {
       if (foundBy[treasureId] && key) foundBy[treasureId].add(key);
     });
     console.log(`✅ 보물 기록: Firestore 연결 (기존 기록 ${snap.size}건 복원)`);
-    for (const [col, arr] of [["reactionGames", reactionGames], ["empathyGames", empathyGames]]) {
+    for (const [col, arr] of [["reactionGames", reactionGames], ["empathyGames", empathyGames], ["baseballGames", baseballGames], ["memoryGames", memoryGames]]) {
       const snap = await db.collection(col).orderBy("at").limitToLast(5000).get();
       snap.forEach((doc) => arr.push(doc.data()));
       console.log(`✅ ${col}: ${snap.size}건 복원`);
@@ -844,6 +877,88 @@ io.on("connection", (socket) => {
     console.log(`[반응속도] ${p.name}(${p.empNo}) 평균 ${avg}ms (부정출발 ${fs})`);
     reaction = null;
     reply({ ok: true, avg, fastest: g.fastest, falseStarts: fs, stats: reactionStats(p.empNo) });
+  });
+
+  // 🃏 카드 짝맞추기: 4×4 (8쌍), 카드 배치는 서버에만 → 한 장씩 뒤집을 때마다 그림을 알려 줌
+  let memory = null;
+  socket.on("memoryStart", ({ npcId, npcName } = {}, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = member(reply);
+    if (!p) return;
+    const deck = [...MEMORY_CARDS, ...MEMORY_CARDS];
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(i + 1);
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    memory = { npcId: clean(npcId, 60), npcName: clean(npcName, 30) || "NPC", deck, matched: new Set(), open: null, moves: 0, startAt: null };
+    reply({ ok: true, size: deck.length, stats: memoryStats(p.empNo) });
+  });
+  socket.on("memoryFlip", ({ i } = {}, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = member(reply);
+    if (!p) return;
+    if (!memory) return reply({ ok: false, message: "새 게임을 시작해 주세요." });
+    if (!Number.isInteger(i) || i < 0 || i >= memory.deck.length || memory.matched.has(i) || memory.open === i) return reply({ ok: false, message: "다른 카드를 골라 주세요." });
+    const nowF = Date.now();
+    if (memory.lastFlip && nowF - memory.lastFlip < 150) return reply({ ok: false, message: "너무 빨라요! 천천히 뒤집어 주세요." }); // 매크로 방지
+    memory.lastFlip = nowF;
+    if (!memory.startAt) memory.startAt = nowF; // 첫 카드를 뒤집는 순간부터 시간 잼
+    const symbol = memory.deck[i];
+    if (memory.open === null) {
+      memory.open = i;
+      return reply({ ok: true, symbol, first: true });
+    }
+    const j = memory.open;
+    memory.open = null;
+    memory.moves += 1;
+    const match = memory.deck[j] === symbol;
+    if (match) {
+      memory.matched.add(i);
+      memory.matched.add(j);
+    }
+    if (memory.matched.size < memory.deck.length) return reply({ ok: true, symbol, first: false, match, pair: j, moves: memory.moves });
+    const seconds = Math.round((Date.now() - memory.startAt) / 100) / 10;
+    const g = { id: gid(), empNo: p.empNo, name: p.name, npcId: memory.npcId, npcName: memory.npcName, floor: p.floor, seconds, moves: memory.moves, at: new Date().toISOString() };
+    saveGame("memoryGames", memoryGames, g);
+    console.log(`[짝맞추기] ${p.name}(${p.empNo}) ${seconds}초 · ${memory.moves}번`);
+    memory = null;
+    reply({ ok: true, symbol, first: false, match, pair: j, moves: g.moves, done: true, seconds, stats: memoryStats(p.empNo) });
+  });
+
+  // ⚾ 숫자야구: 서로 다른 숫자 3개(0~9), 10번 안에 맞히기
+  let baseball = null;
+  socket.on("baseballStart", ({ npcId, npcName } = {}, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = member(reply);
+    if (!p) return;
+    const digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const secret = [];
+    while (secret.length < 3) secret.push(digits.splice(crypto.randomInt(digits.length), 1)[0]);
+    baseball = { npcId: clean(npcId, 60), npcName: clean(npcName, 30) || "NPC", secret: secret.join(""), guesses: [] };
+    reply({ ok: true, max: BASEBALL_MAX, stats: baseballStats(p.empNo) });
+  });
+  socket.on("baseballGuess", ({ guess } = {}, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = member(reply);
+    if (!p) return;
+    if (!baseball) return reply({ ok: false, message: "새 게임을 시작해 주세요." });
+    const gs = String(guess ?? "");
+    if (!/^\d{3}$/.test(gs) || new Set(gs).size !== 3) return reply({ ok: false, message: "서로 다른 숫자 3개를 입력해 주세요." });
+    const sec = baseball.secret;
+    let strike = 0, ball = 0;
+    for (let i = 0; i < 3; i++) {
+      if (gs[i] === sec[i]) strike++;
+      else if (sec.includes(gs[i])) ball++;
+    }
+    baseball.guesses.push(gs);
+    const tries = baseball.guesses.length;
+    const success = strike === 3;
+    if (!success && tries < BASEBALL_MAX) return reply({ ok: true, strike, ball, tries, done: false });
+    const g = { id: gid(), empNo: p.empNo, name: p.name, npcId: baseball.npcId, npcName: baseball.npcName, floor: p.floor, success, tries, secret: sec, guesses: baseball.guesses, at: new Date().toISOString() };
+    saveGame("baseballGames", baseballGames, g);
+    console.log(`[숫자야구] ${p.name}(${p.empNo}) ${success ? `${tries}번 만에 성공` : "실패"}`);
+    baseball = null;
+    reply({ ok: true, strike, ball, tries, done: true, success, secret: sec, stats: baseballStats(p.empNo) });
   });
 
   let empathy = null;

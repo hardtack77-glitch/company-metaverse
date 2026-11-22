@@ -134,12 +134,18 @@ const FLOORS = {
   },
   "9F": {
     chief: "김민정",
+    game: "baseball", // 말을 걸면 "숫자야구" (회원만)
     leaders: [
       ["서혜연", { seat: ["S", 3] }],
       ["김나영", { walk: "north" }],
       ["유하영", { seat: ["N", 2] }],
       ["기수빈", { walk: "south" }],
       ["김화영", { seat: ["N", 5] }],
+      ["박주경", { seat: ["S", 1] }],
+      ["김은경", { seat: ["S", 5] }],
+      ["조윤아", { seat: ["N", 4] }],
+      ["채혜욱", { walk: "corridor" }],
+      ["박혜란", { walk: "north" }],
     ],
     coaches: [
       ["김효선", "코치", ["S", 4, "W", 2]],
@@ -280,6 +286,12 @@ STAFF.push({
   id: "staff_9F_백영주", floor: "9F", name: "백영주 실장", model: "Character_Female_LongHair", color: "#2bb3a3",
   path: route("south"), pathOffset: 0.55, game: "reaction",
   dialog: ["안녕하세요, 9층 상담실 백영주 실장이에요.", "상담사에게 제일 중요한 것 중 하나가 빠른 응대예요. 콜이 울리면 바로 받는 거죠!"],
+});
+// - 1층 강사실 황율산 실장(새로 추가, 여성): 🃏 기억력 카드 짝맞추기 — 팀장석에 앉아 있음
+STAFF.push({
+  id: "staff_1F_황율산", floor: "1F", name: "황율산 실장", model: "Character_Female_ShortHair", color: "#7b4bb7",
+  position: [0.35, 0, -16.2], rotationY: Math.PI / 2, pose: "sit", game: "memory",
+  dialog: ["안녕하세요, 강사실 황율산 실장이에요.", "상담사는 고객 정보를 잘 기억하는 것도 중요하죠. 기억력엔 자신 있나요?"],
 });
 // - 7층 김윤혜 실장: 💗 공감 응대 챌린지
 for (const s of STAFF) if (s.id === "staff_7F_김윤혜") s.game = "empathy";

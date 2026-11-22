@@ -134,6 +134,10 @@ export const reactionStart = (npcId, npcName) => request("reactionStart", { npcI
 export const reactionSubmit = (times, falseStarts) => request("reactionSubmit", { times, falseStarts }, OMOK_FAIL);
 export const empathyStart = (npcId, npcName) => request("empathyStart", { npcId, npcName }, OMOK_FAIL);
 export const empathyAnswer = (pick) => request("empathyAnswer", { pick }, OMOK_FAIL);
+export const baseballStart = (npcId, npcName) => request("baseballStart", { npcId, npcName }, OMOK_FAIL);
+export const baseballGuess = (guess) => request("baseballGuess", { guess }, OMOK_FAIL);
+export const memoryStart = (npcId, npcName) => request("memoryStart", { npcId, npcName }, OMOK_FAIL);
+export const memoryFlip = (i) => request("memoryFlip", { i }, OMOK_FAIL);
 export const getRankings = (period) => request("rankings", { period }, OMOK_FAIL);
 export const getMyMessages = () => request("myMessages", null, { ok: false, items: [] });
 export const getNpcMessages = (npcId) => request("npcMessages", npcId, { ok: false, messages: [] });
