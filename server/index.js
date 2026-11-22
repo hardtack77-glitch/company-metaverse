@@ -59,7 +59,7 @@ const ELEVATOR_EXITS = {
 // 보물 10종 (1·6·7·8·9층 2개씩) — 블렌더 맵의 관련 물체 옆 빈자리
 const treasures = {
   t1_coupon: { id: "t1_coupon", floor: "1F", name: "카페 쿠폰", position: [11.9, 0.5, 3.9] }, // 카페테리아 창가
-  t1_headset: { id: "t1_headset", floor: "1F", name: "황금 헤드셋", position: [2.4, 0.5, -16.6] }, // 강사실 (원형 테이블 옆)
+  t1_headset: { id: "t1_headset", floor: "1F", name: "황금 헤드셋", position: [5.9, 0.5, -14.2] }, // 강사실 (가운데 빈 공간 동쪽)
   t6_ksqi: { id: "t6_ksqi", floor: "6F", name: "KSQI 인증패", position: [-15.4, 0.5, 10.25] },
   t6_dino: { id: "t6_dino", floor: "6F", name: "노란 공룡 인형", position: [-0.6, 0.5, 5.8] },
   t7_cushion: { id: "t7_cushion", floor: "7F", name: "빨간 하트 쿠션", position: [5.33, 0.5, -1.0] },
