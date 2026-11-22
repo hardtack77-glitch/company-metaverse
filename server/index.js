@@ -577,13 +577,87 @@ app.get("/admin/users", async (req, res) => {
   const k = encodeURIComponent(ADMIN_KEY);
   const rows = [...users.values()]
     .sort((a, b) => a.empNo.localeCompare(b.empNo))
-    .map((u) => `<tr><td>${u.empNo}</td><td>${escapeHtml(u.name)}</td><td>${fmt(u.createdAt)}</td><td>${fmt(u.lastLogin)}</td>
+    .map((u) => `<tr><td>${u.empNo}</td><td>${escapeHtml(u.name)}</td><td>${escapeHtml(rosterStatus(u).label)}</td><td>${fmt(u.createdAt)}</td><td>${fmt(u.lastLogin)}</td>
       <td><a href="?key=${k}&delete=${u.empNo}" onclick="return confirm('${escapeHtml(u.name)}(${u.empNo}) 회원을 삭제할까요? (비밀번호를 잊은 경우 삭제 후 다시 가입)')">삭제</a></td></tr>`)
     .join("");
   res.send(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>회원 목록</title>
 <style>body{font-family:system-ui,sans-serif;margin:16px}table{border-collapse:collapse;width:100%;font-size:14px}td,th{border:1px solid #ddd;padding:6px 8px;text-align:left}th{background:#f5f5f5}</style></head>
-<body><h1>👥 회원(내부 임직원) ${users.size}명</h1>${note}<p><a href="/admin/messages?key=${k}">💌 메시지함 보기</a></p>
-<table><tr><th>사번</th><th>이름</th><th>가입일</th><th>마지막 로그인</th><th></th></tr>${rows || "<tr><td colspan=5>아직 가입한 사람이 없어요.</td></tr>"}</table></body></html>`);
+<body><h1>👥 회원(내부 임직원) ${users.size}명</h1>${note}<p><a href="/admin/messages?key=${k}">💌 메시지함 보기</a> · <a href="/admin/roster?key=${k}">📋 사원 명단 · 회원 대조</a></p>
+<table><tr><th>사번</th><th>이름</th><th>명단 대조</th><th>가입일</th><th>마지막 로그인</th><th></th></tr>${rows || "<tr><td colspan=6>아직 가입한 사람이 없어요.</td></tr>"}</table></body></html>`);
+});
+
+/* ───────── 사원 명단 (회원가입 확인용) ─────────
+   - 명단은 GitHub 에 올리지 않고 Firestore "config/roster" 에만 저장 (관리자 페이지에서 붙여넣기)
+   - 명단이 올라가 있으면: 회원가입 때 사번 + 이름이 명단과 같아야 가입됨
+   - 명단이 비어 있으면: 예전처럼 누구나 가입 (명단을 올리기 전까지 가입이 막히지 않도록)
+   - 관리자 페이지: /admin/roster?key=관리자키  (명단 올리기 + 현재 회원 대조)              */
+const roster = new Map(); // 사번 → 이름
+let rosterUpdatedAt = null;
+const normName = (s) => String(s ?? "").replace(/\s+/g, "");
+function parseRoster(text) {
+  const out = new Map();
+  for (const line of String(text || "").split(/\r?\n/)) {
+    const m = line.trim().match(/^"?(\d{6})"?\s*[,\t; ]\s*"?([^",\t;]+?)"?\s*(?:[,\t;].*)?$/);
+    if (m && normName(m[2])) out.set(m[1], normName(m[2]));
+  }
+  return out;
+}
+function rosterStatus(u) {
+  if (!roster.size) return { ok: null, label: "명단 없음" };
+  const nm = roster.get(u.empNo);
+  if (!nm) return { ok: false, label: "❌ 명단에 없는 사번" };
+  if (nm !== normName(u.name)) return { ok: false, label: `⚠️ 이름 불일치 (명단: ${nm})` };
+  return { ok: true, label: "✅ 일치" };
+}
+async function saveRoster() {
+  if (!db) return;
+  try {
+    await db.collection("config").doc("roster").set({ rows: [...roster].map(([e, n]) => ({ e, n })), updatedAt: rosterUpdatedAt });
+  } catch (e) {
+    console.error("사원 명단 저장 실패:", e.message);
+  }
+}
+
+app.get("/admin/roster", (req, res) => {
+  if (!ADMIN_KEY) return res.status(403).send("관리자 키(ADMIN_KEY 환경변수)가 아직 설정되지 않았어요.");
+  if (req.query.key !== ADMIN_KEY) return res.status(403).send("관리자 키가 맞지 않아요.");
+  const k = encodeURIComponent(ADMIN_KEY);
+  const fmt = (iso) => (iso ? new Date(iso).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }) : "-");
+  const list = [...users.values()].map((u) => ({ u, st: rosterStatus(u) }));
+  const bad = list.filter((x) => x.st.ok === false).sort((a, b) => a.u.empNo.localeCompare(b.u.empNo));
+  const good = list.filter((x) => x.st.ok === true).sort((a, b) => a.u.empNo.localeCompare(b.u.empNo));
+  const row = ({ u, st }) => `<tr><td>${u.empNo}</td><td>${escapeHtml(u.name)}</td><td>${escapeHtml(st.label)}</td><td>${fmt(u.createdAt)}</td>
+      <td><a href="/admin/users?key=${k}&delete=${u.empNo}" onclick="return confirm('${escapeHtml(u.name)}(${u.empNo}) 회원을 삭제할까요?')">삭제</a></td></tr>`;
+  const note = req.query.saved ? `<p style="color:#15803d">✅ 사원 명단 ${roster.size}명을 저장했어요.</p>` : req.query.empty ? `<p style="color:#b91c1c">붙여넣은 내용에서 사번(6자리)과 이름을 찾지 못했어요.</p>` : "";
+  res.send(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>사원 명단</title>
+<style>body{font-family:system-ui,sans-serif;margin:16px;max-width:900px}table{border-collapse:collapse;width:100%;font-size:14px;margin-bottom:20px}td,th{border:1px solid #ddd;padding:6px 8px;text-align:left}th{background:#f5f5f5}textarea{width:100%;height:160px;font-family:monospace}.box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin:12px 0}</style></head>
+<body><h1>📋 사원 명단 · 회원 대조</h1>${note}
+<p><a href="/admin/users?key=${k}">👥 회원 목록</a> · <a href="/admin/messages?key=${k}">💌 메시지함</a></p>
+<div class="box"><b>현재 명단:</b> ${roster.size ? `${roster.size}명 (올린 시각 ${fmt(rosterUpdatedAt)}) → 회원가입 때 사번·이름을 확인하고 있어요.` : "아직 없어요 → 지금은 누구나 가입할 수 있어요."}</div>
+<h2>회원 대조 결과</h2>
+<p>가입 회원 ${list.length}명 중 ✅ 일치 <b>${good.length}</b>명 · 확인 필요 <b style="color:#b91c1c">${bad.length}</b>명</p>
+<h3>확인 필요</h3><table><tr><th>사번</th><th>가입 이름</th><th>대조 결과</th><th>가입일</th><th></th></tr>${bad.map(row).join("") || "<tr><td colspan=5>없어요 👍</td></tr>"}</table>
+<details><summary>✅ 일치한 회원 ${good.length}명 보기</summary><table><tr><th>사번</th><th>이름</th><th>대조 결과</th><th>가입일</th><th></th></tr>${good.map(row).join("")}</table></details>
+<h2>명단 올리기 (전체 바꾸기)</h2>
+<p>엑셀에서 <b>사원번호·사원명</b> 두 열을 선택해 복사(Ctrl+C)한 뒤 아래 칸에 붙여넣고 저장하세요. 제목 줄은 그대로 넣어도 괜찮아요. CSV 파일을 골라도 돼요.</p>
+<form method="post" action="/admin/roster"><input type="hidden" name="key" value="${escapeHtml(ADMIN_KEY)}">
+<input type="file" accept=".csv,.txt" onchange="const f=this.files[0];if(f)f.text().then(t=>this.form.text.value=t)"><br><br>
+<textarea name="text" placeholder="642534	김민정&#10;641786	김승현"></textarea><br>
+<button type="submit" onclick="return confirm('지금 명단을 이 내용으로 바꿀까요?')">명단 저장</button></form></body></html>`);
+});
+
+app.post("/admin/roster", express.urlencoded({ extended: false, limit: "2mb" }), async (req, res) => {
+  const { key, text } = req.body || {};
+  if (!ADMIN_KEY || key !== ADMIN_KEY) return res.status(403).send("관리자 키가 맞지 않아요.");
+  const back = `/admin/roster?key=${encodeURIComponent(ADMIN_KEY)}`;
+  const next = parseRoster(text);
+  if (!next.size) return res.redirect(`${back}&empty=1`);
+  roster.clear();
+  for (const [e, n] of next) roster.set(e, n);
+  rosterUpdatedAt = new Date().toISOString();
+  await saveRoster();
+  console.log(`[사원 명단] ${roster.size}명 저장`);
+  res.redirect(`${back}&saved=1`);
 });
 
 /* ───────── 보물 기록 저장 ─────────
@@ -617,6 +691,13 @@ async function initStorage() {
     const rpsSnap = await db.collection("rpsGames").orderBy("at").limitToLast(5000).get();
     rpsSnap.forEach((doc) => rpsGames.push(doc.data()));
     console.log(`✅ 가위바위보 기록: ${rpsSnap.size}판 복원`);
+    const rosterDoc = await db.collection("config").doc("roster").get();
+    if (rosterDoc.exists) {
+      const d = rosterDoc.data();
+      for (const r of d.rows || []) roster.set(r.e, r.n);
+      rosterUpdatedAt = d.updatedAt || null;
+    }
+    console.log(`✅ 사원 명단: ${roster.size}명 복원`);
     const userSnap = await db.collection("users").get();
     userSnap.forEach((doc) => users.set(doc.id, doc.data()));
     console.log(`✅ 회원: ${userSnap.size}명 복원`);
@@ -663,6 +744,13 @@ io.on("connection", (socket) => {
     if (!nm) return reply({ ok: false, message: "이름을 입력해 주세요." });
     if (!/^\d{6}$/.test(no)) return reply({ ok: false, message: "사번은 숫자 6자리로 입력해 주세요." });
     if (pw.length < 4 || pw.length > 30) return reply({ ok: false, message: "비밀번호는 4~30자로 정해 주세요." });
+    if (roster.size) {
+      if (authFails >= 5) return reply({ ok: false, message: "시도가 너무 많아요. 잠시 후 새로고침하고 다시 시도해 주세요." });
+      if (roster.get(no) !== normName(nm)) {
+        authFails += 1;
+        return reply({ ok: false, message: "사원 명단의 사번·이름과 일치하지 않아요. 사번과 이름(실명)을 다시 확인해 주세요." });
+      }
+    }
     if (users.has(no)) return reply({ ok: false, message: "이미 가입된 사번이에요. 로그인해 주세요." });
     const u = { empNo: no, name: nm, pass: hashPassword(pw), look: null, createdAt: new Date().toISOString(), lastLogin: new Date().toISOString() };
     users.set(no, u);
