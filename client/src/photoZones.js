@@ -25,13 +25,13 @@ export const PHOTO_ZONES = [
   },
   // 1층 일반강의장 (블렌더 X 9.4~17.6, Y 13.4~23)
   {
-    id: "lecture_1f", floors: ["1F"], x: [9.4, 17.6], z: [-23.0, -13.4], title: "일반강의장",
+    id: "lecture_1f", floors: ["1F"], x: [9.4, 17.6], z: [-14.65, -5.05], title: "일반강의장",
     photos: ["lecture_1.jpg", "lecture_2.jpg"], thumb: "lecture_thumb.jpg",
     text: "입사 후 교육을 받는 일반강의장이에요. 스크린과 화이트보드가 갖춰져 있어 강사님과 함께 상담 업무를 차근차근 배울 수 있어요.",
   },
   // 1층 사물함 복도 (블렌더 X 7.1~9.4, Y -0.6~4.45)
   {
-    id: "locker_1f", floors: ["1F"], x: [7.1, 9.4], z: [-4.45, 0.6], title: "사물함",
+    id: "locker_1f", floors: ["1F"], x: [7.0, 9.4], z: [-4.45, 3.3], title: "사물함",
     photo: "locker.jpg", thumb: "locker_thumb.jpg",
     text: "개인 소지품을 보관할 수 있는 번호 키 사물함과 잠시 앉아 쉴 수 있는 벤치가 마련되어 있어요.",
   },
@@ -43,13 +43,13 @@ export const PHOTO_ZONES = [
   },
   // 1층 북카페·다트 라운지 (블렌더 X 0~7, Y -2.3~3.7)
   {
-    id: "bookcafe_1f", floors: ["1F"], x: [0, 7.0], z: [-3.7, 2.3], title: "북카페 · 다트 라운지",
+    id: "bookcafe_1f", floors: ["1F"], x: [0, 5.6], z: [-3.7, 2.3], title: "북카페 · 다트 라운지",
     photos: ["bookcafe_1.jpg", "bookcafe_2.jpg"], thumb: "bookcafe_thumb.jpg",
     text: "책을 읽거나 다트 게임을 즐기며 쉬어 갈 수 있는 라운지예요. 다트 머신 앞에 서면 게임 속에서도 다트를 던져 볼 수 있어요! 🎯",
   },
-  // 1층 탕비실 앞 (블렌더 X 4.5~7.8, Y -4.5~-3.1)
+  // 1층 탕비실 앞 (라운지 동쪽 벽을 따라 세로 · 블렌더 X 5.6~7.0, Y -3.3~0.4)
   {
-    id: "pantry_1f", floors: ["1F"], x: [4.5, 7.8], z: [3.1, 4.5], title: "탕비실",
+    id: "pantry_1f", floors: ["1F"], x: [5.6, 7.0], z: [-0.4, 3.3], title: "탕비실",
     photo: "pantry_1f.jpg", thumb: "pantry_1f_thumb.jpg",
     text: "커피머신과 제빙기, 정수기가 있는 탕비실이에요. 분리수거함도 함께 있어요.",
   },
@@ -86,9 +86,9 @@ export const PHOTO_ZONES = [
     photo: "building.jpg", thumb: "building_thumb.jpg",
     text: "푸른 가로수길 옆에 자리한 LG유플러스 대구고객센터 건물이에요. 회전문으로 들어오면 로비와 안내데스크가 맞이해 드려요.",
   },
-  // 1층 카페테리아 안쪽 (블렌더 X 7.8~13, Y -6.8~-1.2)
+  // 1층 카페테리아 안쪽 (안내데스크 대리석 벽 뒤 · 블렌더 X 4.6~9.4, Y -10~-3.3)
   {
-    id: "cafe_1f", floors: ["1F"], x: [7.8, 13.0], z: [1.2, 6.8], title: "1층 카페테리아",
+    id: "cafe_1f", floors: ["1F"], x: [4.6, 9.4], z: [3.3, 10.0], title: "1층 카페테리아",
     photos: ["cafe_1f_1.jpg", "cafe_1f_2.jpg"], thumb: "cafe_1f_thumb.jpg",
     text: "커피머신과 전자레인지, 냉장고가 갖춰진 카페테리아예요. 혈압계와 인바디 측정기도 있어 쉬는 시간에 건강도 챙길 수 있어요.",
   },
