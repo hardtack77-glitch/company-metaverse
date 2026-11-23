@@ -204,7 +204,7 @@ STAFF.push(
   },
   {
     id: "staff_1F_양인실", floor: "1F", name: "양인실 강사", ...look("양인실"),
-    position: [3.35, 0, -11.95], rotationY: 0, pose: "sit", // 강사실 남쪽 벽 줄 가운데 강사석
+    position: [3.35, 0, -11.45], rotationY: 0, pose: "sit", // 강사실 남쪽 벽 줄 가운데 강사석
     dialog: [
       "여기는 강사실이에요. 교육 자료를 준비하고 1:1 코칭도 해요.",
       "교육 중에 힘든 점이 있으면 언제든 강사실 문을 두드려요!",
@@ -290,7 +290,7 @@ STAFF.push({
 // - 1층 강사실 황율산 실장(새로 추가, 여성): 🃏 기억력 카드 짝맞추기 — 팀장석에 앉아 있음
 STAFF.push({
   id: "staff_1F_황율산", floor: "1F", name: "황율산 실장", model: "Character_Female_ShortHair", color: "#7b4bb7",
-  position: [0.35, 0, -16.2], rotationY: Math.PI / 2, pose: "sit", game: "memory",
+  position: [0.35, 0, -12.4], rotationY: Math.PI / 2, pose: "sit", game: "memory",
   dialog: ["안녕하세요, 강사실 황율산 실장이에요.", "상담사는 고객 정보를 잘 기억하는 것도 중요하죠. 기억력엔 자신 있나요?"],
 });
 // - 7층 김윤혜 실장: 💗 공감 응대 챌린지
