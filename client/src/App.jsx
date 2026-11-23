@@ -6,6 +6,7 @@ import { Html, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import Shop from "./Shop.jsx";
 import NewsTV from "./NewsTV.jsx";
+import LectureScreen from "./LectureScreen.jsx";
 import { shopInfo } from "./socket.js";
 import { socket, connectAs, claimTreasure, changeFloor, submitDart, sendMove, rememberPose, signup, login, checkSession, logout, getToken, sendAction } from "./socket.js";
 import { openExternal, shouldAutoResume, clearResume } from "./openLink.js";
@@ -24,7 +25,7 @@ import MemoryGame from "./MemoryGame.jsx";
 import PhotoSpot from "./PhotoSpot.jsx";
 import { zoneAt } from "./photoZones.js";
 import { ACTIONS, ACTION_MAP, startAction, cancelAction, actionState, actionPose, onAction, PLANE_RELEASE } from "./actions.js";
-import { STAFF_NPCS, COUNSEL_FLOORS, seatedWorkers, RECRUITERS, RECRUIT_LINKS, RECRUIT_GREETING, RECRUIT_HELLOS } from "./staff.js";
+import { STAFF_NPCS, COUNSEL_FLOORS, seatedWorkers, classroomWorkers, RECRUITERS, RECRUIT_LINKS, RECRUIT_GREETING, RECRUIT_HELLOS } from "./staff.js";
 import SeatedCrowd from "./SeatedCrowd.jsx";
 
 /* ───────────── 설정 ───────────── */
@@ -1684,7 +1685,7 @@ export default function App() {
 
   /* ── 지금 층에 있는 것들 ── */
   const floorNpcs = NPCS.filter((n) => n.floor === floor);
-  const crowd = useMemo(() => (COUNSEL_FLOORS.includes(floor) ? seatedWorkers(floor) : []), [floor]);
+  const crowd = useMemo(() => (COUNSEL_FLOORS.includes(floor) ? seatedWorkers(floor) : floor === "1F" ? classroomWorkers() : []), [floor]);
   const floorTreasures = treasures.filter((t) => t.floor === floor && !t.foundByMe && !t.claimed);
   const elevatorPos = world.elevators[floor];
   const stairPos = world.stairs?.[floor];
@@ -2093,8 +2094,16 @@ export default function App() {
         {floorNpcs.map((n) => (
           <Npc key={n.id} npc={n} myPosRef={myPosRef} />
         ))}
-        {COUNSEL_FLOORS.includes(floor) && maps[floor] && <SeatedCrowd workers={crowd} />}
+        {(COUNSEL_FLOORS.includes(floor) || floor === "1F") && maps[floor] && <SeatedCrowd workers={crowd} />}
         {floor === "1F" && <NewsTV position={[-5.45, 1.61, 4.828]} />}
+        {floor === "1F" && (
+          <>
+            <LectureScreen deck="lecture" position={[13.5, 1.7, -18.1]} />
+            <LectureScreen deck="comp1" position={[13.5, 1.7, -8.5]} offset={1} />
+            <LectureScreen deck="comp2" position={[13.5, 1.7, 2.3]} offset={2} />
+            <LectureScreen deck="practice" position={[9.31, 1.7, -16.5]} rotation={[0, -Math.PI / 2, 0]} />
+          </>
+        )}
         {["7F", "8F", "9F"].includes(floor) && <NewsTV position={[-0.965, 1.7, 6.6]} rotation={[0, Math.PI / 2, 0]} width={1.1} height={0.62} />}
         {floorTreasures.map((t) => (
           <Treasure key={t.id} t={t} />
