@@ -43,6 +43,15 @@ const ELEVATORS = {
   "8F": [2.6, 0, 10.55], // 8·9층은 7층과 같은 구조
   "9F": [2.6, 0, 10.55],
 };
+// 층별 계단실(비상구) 계단참 '초록 원형 마커' — 엘리베이터 대신 계단으로도 층간 이동
+const STAIRS = {
+  "1F": [-9.95, 0, 5.3], // 엘리베이터 홀 서쪽 벽 검은 문 안쪽 (북쪽 계단참)
+  "6F": [-0.9, 0, 14.9], // 엘리베이터 홀 남쪽 벽 비상구 문 안쪽 (서쪽 계단참)
+  "7F": [-0.1, 0, 14.9],
+  "8F": [-0.1, 0, 14.9],
+  "9F": [-0.1, 0, 14.9],
+};
+const STAIR_DISTANCE = 1.6;
 // 1층 북카페 BULLSEYE 다트 머신 앞 (다트 게임 점수는 이 근처에서만 받음)
 const DART_SPOT = { floor: "1F", position: [1.0, 0, -0.72] };
 const DART_MAX = 3 * 3 * 60; // 3라운드 × 3발 × 트리플20(60점)
@@ -905,7 +914,7 @@ io.on("connection", (socket) => {
       players: playersOnFloor(player.floor),
       treasures: treasuresFor(player.key),
       treasureMode: TREASURE_MODE,
-      world: { floors: FLOORS, elevators: ELEVATORS },
+      world: { floors: FLOORS, elevators: ELEVATORS, stairs: STAIRS },
       chatLog: chatLog(player.floor),
       inboxUnread: unreadCount(player.key),
     });
@@ -925,13 +934,18 @@ io.on("connection", (socket) => {
   });
 
   // 3) 엘리베이터로 층 이동 (ack 로 새 층의 직원 목록·내 위치 응답)
-  socket.on("changeFloor", (floor, ack) => {
+  socket.on("changeFloor", (arg, ack) => {
     const reply = typeof ack === "function" ? ack : () => {};
+    const floor = typeof arg === "object" && arg ? arg.floor : arg;
+    const viaStairs = typeof arg === "object" && arg?.via === "stairs";
     const p = players.get(socket.id);
     if (!p) return reply({ ok: false, message: "먼저 입장해 주세요." });
     if (!FLOORS.includes(floor)) return reply({ ok: false, message: "없는 층입니다." });
     if (floor === p.floor) return reply({ ok: false, message: `이미 ${floor}에 있어요.` });
-    if (dist2D(p.position, ELEVATORS[p.floor]) > ELEVATOR_DISTANCE)
+    if (viaStairs) {
+      if (!STAIRS[p.floor] || !STAIRS[floor] || dist2D(p.position, STAIRS[p.floor]) > STAIR_DISTANCE)
+        return reply({ ok: false, message: "계단실 안에서 이용해 주세요." });
+    } else if (dist2D(p.position, ELEVATORS[p.floor]) > ELEVATOR_DISTANCE)
       return reply({ ok: false, message: "엘리베이터 앞에서 이용해 주세요." });
 
     const from = p.floor;
@@ -939,12 +953,12 @@ io.on("connection", (socket) => {
     socket.to(from).emit("playerLeft", socket.id);
 
     p.floor = floor;
-    p.position = elevatorExit(floor);
+    p.position = viaStairs ? [...STAIRS[floor]] : elevatorExit(floor);
     socket.join(floor);
     socket.to(floor).emit("playerJoined", publicPlayer(p));
 
     reply({ ok: true, floor, position: p.position, players: playersOnFloor(floor), chatLog: chatLog(floor) });
-    console.log(`[엘리베이터] ${p.name} ${from} → ${floor}`);
+    console.log(`[${viaStairs ? "계단" : "엘리베이터"}] ${p.name} ${from} → ${floor}`);
   });
 
   // 3-2) 다트 게임 점수 → 최고 기록·랭킹 응답, 같은 층에 소식 알림

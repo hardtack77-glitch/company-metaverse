@@ -6,9 +6,10 @@ export const ITEM_CATALOG = {
   equip_gold_hs: { id: "equip_gold_hs", icon: "🎧", name: "베스트 상담사 골드 헤드셋", type: "equipment", slot: "headset", buyPrice: 500, sellPrice: 350, desc: "장착하면 황금색 헤드셋 (모두에게 보임)" },
   equip_dino_pet: { id: "equip_dino_pet", icon: "🦖", name: "휴게실 노란 공룡 미니 펫", type: "equipment", slot: "pet", buyPrice: 800, sellPrice: 560, desc: "노란 공룡이 옆에서 따라다님 + 보물 획득 거리 +1.2m" },
   equip_mini_fan: { id: "equip_mini_fan", icon: "🪭", name: "상담석 휴대용 미니 선풍기", type: "equipment", slot: "hand", buyPrice: 300, sellPrice: 210, desc: "오른손에 흰색 미니 선풍기 + 이동 속도 항상 +15%" },
+  equip_gold_bird: { id: "equip_gold_bird", icon: "🐦", name: "황금새", type: "equipment", slot: "shoulder", buyPrice: 1000, sellPrice: 700, desc: "어깨 위에 앉아 날개를 파닥이는 황금새 (모두에게 보임)" },
   item_dart_ticket: { id: "item_dart_ticket", icon: "🎯", name: "BULLSEYE 럭키 다트 티켓", type: "gacha", buyPrice: 250, sellPrice: 150, desc: "사용하면 다트 룰렛! 50P ~ 1,000P 랜덤 당첨" },
 };
-export const SLOTS = ["headset", "pet", "hand"];
+export const SLOTS = ["headset", "pet", "hand", "shoulder"];
 
 // 다트 티켓: 확률 가중치 (기대값 약 197P < 구매가 250P → 무한 뽑기로 포인트를 불리는 것 방지)
 export const DART_PRIZES = [
@@ -38,6 +39,6 @@ export const GAME_POINTS = {
 export const GAME_KO = { rps: "가위바위보", omok: "오목", shell: "야바위", reaction: "콜 받기", empathy: "공감 응대", baseball: "숫자야구", memory: "카드 짝맞추기" };
 
 export const newWallet = (empNo) => ({
-  empNo, points: START_POINTS, bag: { item_coffee: 1 }, equipped: { headset: null, pet: null, hand: null },
+  empNo, points: START_POINTS, bag: { item_coffee: 1 }, equipped: { headset: null, pet: null, hand: null, shoulder: null },
   day: "", dayGame: 0, createdAt: new Date().toISOString(),
 });

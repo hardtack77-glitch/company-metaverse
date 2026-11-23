@@ -456,6 +456,30 @@ function FallbackFloor({ floor }) {
 
 /* ───────────── 엘리베이터 · 보물 · NPC ───────────── */
 
+// 계단실(비상구) 계단참의 초록 원형 마커 — 이 위에 서면 계단으로 층간 이동
+const STAIR_DISTANCE = 1.0;
+function StairMarker({ position, floor }) {
+  const ring = useRef();
+  useFrame((state) => {
+    if (ring.current) ring.current.material.opacity = 0.55 + Math.sin(state.clock.elapsedTime * 3) * 0.25;
+  });
+  return (
+    <group position={position}>
+      <mesh rotation-x={-Math.PI / 2} position-y={0.03}>
+        <circleGeometry args={[0.55, 32]} />
+        <meshBasicMaterial color="#16a34a" transparent opacity={0.35} />
+      </mesh>
+      <mesh ref={ring} rotation-x={-Math.PI / 2} position-y={0.04}>
+        <ringGeometry args={[0.48, 0.58, 32]} />
+        <meshBasicMaterial color="#4ade80" transparent opacity={0.8} />
+      </mesh>
+      <Html position-y={2.0} center distanceFactor={10} zIndexRange={[10, 0]}>
+        <div style={{ ...styles.elevatorSign, background: "#15803d" }}>🚶 계단실(비상구) · {floor}</div>
+      </Html>
+    </group>
+  );
+}
+
 // position = 엘리베이터 앞 '파란 원형 마커' 위치 (이 위에 서서 층간 이동)
 function Elevator({ position, floor, showDoors }) {
   const ring = useRef();
@@ -760,12 +784,13 @@ function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, mod
 const ACC = { headY: 1.5, handY: 0.82, handX: 0.27 };
 const GOLD = { color: "#f5c518", metalness: 0.85, roughness: 0.25 };
 function Accessories({ equipped, coffee, aura }) {
-  if (!equipped?.headset && !equipped?.pet && !equipped?.hand && !coffee && !aura) return null;
+  if (!equipped?.headset && !equipped?.pet && !equipped?.hand && !equipped?.shoulder && !coffee && !aura) return null;
   return (
     <group>
       {equipped?.headset && <GoldHeadset />}
       {equipped?.pet && <DinoPet />}
       {equipped?.hand && <MiniFan />}
+      {equipped?.shoulder && <GoldBird />}
       {coffee && <CoffeeCup />}
       {aura && <AuraRing />}
     </group>
@@ -792,6 +817,67 @@ function GoldHeadset() {
         <sphereGeometry args={[0.02, 8, 8]} />
         <meshStandardMaterial color="#222" />
       </mesh>
+    </group>
+  );
+}
+// 🐦 황금새: 왼쪽 어깨 위에 앉아 날개를 파닥이고 고개를 갸웃거림
+function GoldBird() {
+  const body = useRef();
+  const wingL = useRef();
+  const wingR = useRef();
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    const flap = Math.sin(t * 14) * 0.5 * (Math.sin(t * 0.9) > 0.6 ? 1 : 0.15);
+    if (wingL.current) wingL.current.rotation.z = 0.25 + flap;
+    if (wingR.current) wingR.current.rotation.z = -0.25 - flap;
+    if (body.current) {
+      body.current.rotation.y = Math.sin(t * 1.3) * 0.35;
+      body.current.position.y = Math.abs(Math.sin(t * 3)) * 0.015;
+    }
+  });
+  const G = { color: "#f5c518", metalness: 0.75, roughness: 0.28 };
+  return (
+    <group position={[0.2, 1.38, -0.02]}>
+      <group ref={body}>
+        <mesh scale={[0.07, 0.075, 0.1]}>
+          <sphereGeometry args={[1, 16, 12]} />
+          <meshStandardMaterial {...G} />
+        </mesh>
+        <mesh position={[0, 0.085, 0.05]}>
+          <sphereGeometry args={[0.05, 16, 12]} />
+          <meshStandardMaterial {...G} />
+        </mesh>
+        <mesh position={[0, 0.08, 0.105]} rotation-x={Math.PI / 2}>
+          <coneGeometry args={[0.016, 0.05, 8]} />
+          <meshStandardMaterial color="#f97316" />
+        </mesh>
+        {[-1, 1].map((s) => (
+          <mesh key={s} position={[s * 0.028, 0.1, 0.085]}>
+            <sphereGeometry args={[0.009, 8, 8]} />
+            <meshStandardMaterial color="#111" />
+          </mesh>
+        ))}
+        <mesh position={[0, 0.14, 0.04]} rotation-x={-0.4}>
+          <coneGeometry args={[0.018, 0.05, 6]} />
+          <meshStandardMaterial {...G} />
+        </mesh>
+        <group ref={wingL} position={[0.06, 0.01, -0.01]}>
+          <mesh position={[0.04, 0, 0]} scale={[0.06, 0.012, 0.07]}>
+            <sphereGeometry args={[1, 10, 8]} />
+            <meshStandardMaterial {...G} />
+          </mesh>
+        </group>
+        <group ref={wingR} position={[-0.06, 0.01, -0.01]}>
+          <mesh position={[-0.04, 0, 0]} scale={[0.06, 0.012, 0.07]}>
+            <sphereGeometry args={[1, 10, 8]} />
+            <meshStandardMaterial {...G} />
+          </mesh>
+        </group>
+        <mesh position={[0, -0.01, -0.12]} rotation-x={-1.2} scale={[1, 1, 0.4]}>
+          <coneGeometry args={[0.04, 0.1, 6]} />
+          <meshStandardMaterial {...G} />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -1601,12 +1687,14 @@ export default function App() {
   const crowd = useMemo(() => (COUNSEL_FLOORS.includes(floor) ? seatedWorkers(floor) : []), [floor]);
   const floorTreasures = treasures.filter((t) => t.floor === floor && !t.foundByMe && !t.claimed);
   const elevatorPos = world.elevators[floor];
+  const stairPos = world.stairs?.[floor];
 
   const targets = useMemo(
     () => [
       ...floorNpcs.map((n) => ({ type: "npc", id: n.id, position: n.position || n.path[0], live: !!n.path, range: INTERACT_DISTANCE })),
       ...floorTreasures.map((t) => ({ type: "treasure", id: t.id, position: t.position, range: INTERACT_DISTANCE + (me?.equipped?.pet ? 1.2 : 0) })),
       ...(elevatorPos ? [{ type: "elevator", id: floor, position: elevatorPos, range: ELEVATOR_DISTANCE }] : []),
+      ...(stairPos ? [{ type: "stairs", id: floor, position: stairPos, range: STAIR_DISTANCE }] : []),
       ...(floor === DART_SPOT.floor ? [{ type: "dart", id: "dart", position: DART_SPOT.position, range: DART_SPOT.range }] : []),
     ],
     [floor, treasures, world, me?.equipped?.pet] // eslint-disable-line
@@ -1619,6 +1707,8 @@ export default function App() {
       ? { type: "treasure", data: floorTreasures.find((t) => t.id === nearbyTarget.id) }
       : nearbyTarget?.type === "elevator" && nearbyTarget.id === floor
       ? { type: "elevator", data: { floor } }
+      : nearbyTarget?.type === "stairs" && nearbyTarget.id === floor
+      ? { type: "stairs", data: { floor } }
       : nearbyTarget?.type === "dart" && floor === DART_SPOT.floor
       ? { type: "dart", data: {} }
       : null;
@@ -1660,6 +1750,7 @@ export default function App() {
       );
     else if (nearby.type === "treasure") pickUp(nearby.data);
     else if (nearby.type === "elevator") setElevatorOpen(true);
+    else if (nearby.type === "stairs") setElevatorOpen("stairs");
     else if (nearby.type === "dart") setDartOpen(true);
   };
 
@@ -1685,7 +1776,8 @@ export default function App() {
     if (busy) return;
     setElevatorOpen(false);
     setBusy(true);
-    const res = await changeFloor(target);
+    const via = elevatorOpen === "stairs" ? "stairs" : undefined;
+    const res = await changeFloor(target, via);
     if (res.ok) {
       await new Promise((r) => setTimeout(r, 600)); // 엘리베이터 연출
       setMe((m) => ({ ...m, floor: res.floor, position: res.position }));
@@ -1695,7 +1787,7 @@ export default function App() {
       setChatLines(res.chatLog || []);
       setNearbyTarget(null);
       setSpawnSeq((n) => n + 1);
-      showToast(`🛗 ${res.floor}에 도착했어요`);
+      showToast(via ? `🚶 계단으로 ${res.floor}에 도착했어요` : `🛗 ${res.floor}에 도착했어요`);
     } else {
       openDialog("알림", res.message);
     }
@@ -1967,6 +2059,7 @@ export default function App() {
     npc: ["#3b82f6", "💬\n대화하기"],
     treasure: ["#eab308", "🎁\n보물 열기"],
     elevator: ["#2563eb", "🛗\n층간 이동"],
+    stairs: ["#16a34a", "🚶\n층간 이동"],
     dart: ["#ef4444", "🎯\n다트 게임"],
   };
 
@@ -1996,6 +2089,7 @@ export default function App() {
           onColliders={(f, c) => setFloorColliders((o) => ({ ...o, [f]: c }))}
         />
         {elevatorPos && <Elevator position={elevatorPos} floor={floor} showDoors={maps[floor] === false} />}
+        {stairPos && maps[floor] !== false && <StairMarker position={stairPos} floor={floor} />}
         {floorNpcs.map((n) => (
           <Npc key={n.id} npc={n} myPosRef={myPosRef} />
         ))}
@@ -2136,7 +2230,7 @@ export default function App() {
       {elevatorOpen && (
         <div style={styles.backdrop} onClick={() => setElevatorOpen(false)}>
           <div style={styles.elevatorPanel} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.dialogTitle}>🛗 몇 층으로 갈까요?</div>
+            <div style={styles.dialogTitle}>{elevatorOpen === "stairs" ? "🚶 계단으로 몇 층에 갈까요?" : "🛗 몇 층으로 갈까요?"}</div>
             {[...world.floors].reverse().map((f) => (
               <button
                 key={f}
