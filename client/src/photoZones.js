@@ -6,7 +6,9 @@ const SLEEP_TEXT = "각 층에는 안마의자로 구성된 수면실이 있어 
 
 export const PHOTO_ZONES = [
   // 6층 수면실 (블렌더 X -16~-8.8, Y -3.6~0.2)
-  { id: "sleep_6f", floors: ["6F"], x: [-16.0, -8.8], z: [-0.2, 3.6], title: "수면실", photo: "sleep_room.jpg", thumb: "sleep_room_thumb.jpg", text: SLEEP_TEXT },
+  { id: "sleep_6f", floors: ["6F"], x: [-9.7, -7.3], z: [3.6, 7.9], title: "수면실", photo: "sleep_room.jpg", thumb: "sleep_room_thumb.jpg", text: SLEEP_TEXT },
+  // 6층 휴게실 (예전 회의실 A · 블렌더 X -9.7~-4.4, Y -3.6~0.2)
+  { id: "lounge_6f", floors: ["6F"], x: [-9.7, -4.4], z: [-0.2, 3.6], title: "휴게실", photo: "lounge_6f.jpg", thumb: "lounge_6f_thumb.jpg", text: LOUNGE_TEXT },
   // 7·8·9층 수면실 (블렌더 X 1.7~6.7, Y 8.4~15)
   { id: "sleep_789f", floors: ["7F", "8F", "9F"], x: [1.7, 6.7], z: [-15.0, -8.4], title: "수면실", photo: "sleep_room.jpg", thumb: "sleep_room_thumb.jpg", text: SLEEP_TEXT },
   // 7·8·9층 휴게실 (블렌더 X 1.7~6.7, Y -1.5~8.4)
@@ -76,7 +78,7 @@ export const PHOTO_ZONES = [
   },
   // 6층 안마치료실 (블렌더 X -8.4~-1.4, Y -7.9~-3.6)
   {
-    id: "massage_6f", floors: ["6F"], x: [-8.4, -1.4], z: [3.6, 7.9], title: "안마치료실",
+    id: "massage_6f", floors: ["6F"], x: [-7.3, -1.4], z: [3.6, 7.9], title: "안마치료실",
     photo: "massage_6f.jpg", thumb: "massage_6f_thumb.jpg",
     text: "전문 안마사에게 마사지를 받으며 뭉친 몸을 풀 수 있는 안마치료실이에요.",
   },
