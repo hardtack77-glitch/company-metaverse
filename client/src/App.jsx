@@ -533,9 +533,11 @@ function Treasure({ t }) {
     ref.current.position.y = Math.sin(state.clock.elapsedTime * 2) * 0.08;
   });
   const [x, , z] = t.position;
+  // small: 절반 크기 · 표시 없음 (찾기 어려운 보물) / hidden: 스캐너로 드러난 보물 (하늘색 빛)
+  const s = t.small ? 0.5 : 1;
   return (
     <group position={[x, 0, z]}>
-      <group ref={ref}>
+      <group ref={ref} scale={s}>
         <mesh position-y={0.25} castShadow>
           <boxGeometry args={[0.7, 0.45, 0.5]} />
           <meshStandardMaterial color="#facc15" metalness={0.3} roughness={0.4} />
@@ -549,10 +551,12 @@ function Treasure({ t }) {
           <meshStandardMaterial color="#78350f" />
         </mesh>
       </group>
-      <pointLight position-y={0.8} color="#ffe08a" intensity={1.5} distance={3} />
-      <Html position-y={1.1} center distanceFactor={labelScale} zIndexRange={[10, 0]}>
-        <div style={styles.treasureMark}>★ 보물</div>
-      </Html>
+      <pointLight position-y={0.8 * s} color={t.hidden ? "#67e8f9" : "#ffe08a"} intensity={t.small ? 0.6 : 1.5} distance={t.small ? 1.5 : 3} />
+      {!t.small && (
+        <Html position-y={1.1} center distanceFactor={labelScale} zIndexRange={[10, 0]}>
+          <div style={{ ...styles.treasureMark, ...(t.hidden ? { background: "#0891b2", color: "#fff" } : null) }}>{t.hidden ? "📡 숨은 보물" : "★ 보물"}</div>
+        </Html>
+      )}
     </group>
   );
 }
@@ -1686,7 +1690,9 @@ export default function App() {
   /* ── 지금 층에 있는 것들 ── */
   const floorNpcs = NPCS.filter((n) => n.floor === floor);
   const crowd = useMemo(() => (COUNSEL_FLOORS.includes(floor) ? seatedWorkers(floor) : floor === "1F" ? classroomWorkers() : []), [floor]);
-  const floorTreasures = treasures.filter((t) => t.floor === floor && !t.foundByMe && !t.claimed);
+  const allFloorTreasures = treasures.filter((t) => t.floor === floor && !t.foundByMe && !t.claimed);
+  // 숨은 보물(hidden)은 U+ 5G 보물 위치 스캐너를 켠 동안만 보이고 열 수 있음
+  const floorTreasures = allFloorTreasures.filter((t) => !t.hidden || radarOn);
   const elevatorPos = world.elevators[floor];
   const stairPos = world.stairs?.[floor];
 
@@ -1698,7 +1704,7 @@ export default function App() {
       ...(stairPos ? [{ type: "stairs", id: floor, position: stairPos, range: STAIR_DISTANCE }] : []),
       ...(floor === DART_SPOT.floor ? [{ type: "dart", id: "dart", position: DART_SPOT.position, range: DART_SPOT.range }] : []),
     ],
-    [floor, treasures, world, me?.equipped?.pet] // eslint-disable-line
+    [floor, treasures, world, me?.equipped?.pet, radarOn] // eslint-disable-line
   );
 
   const nearby =
@@ -2125,7 +2131,7 @@ export default function App() {
           coffee={myCoffee}
           aura={myAura}
         />
-        {radarOn && <RadarArrow targets={floorTreasures} />}
+        {radarOn && <RadarArrow targets={allFloorTreasures} />}
         {Object.values(others).map((p) => (
           <OtherAvatar key={p.id} player={p} bubble={bubbles[p.id]} />
         ))}
@@ -2179,7 +2185,7 @@ export default function App() {
             setMe((m) => (m ? { ...m, equipped: w.equipped } : m));
           }}
           canUse={(it) =>
-            it.effect === "RADAR_SCAN" && !floorTreasures.length ? "이 층에는 아직 못 찾은 보물이 없어요. 다른 층에서 써 보세요!" : null
+            it.effect === "RADAR_SCAN" && !allFloorTreasures.length ? "이 층에는 아직 못 찾은 보물이 없어요. 다른 층에서 써 보세요!" : null
           }
           onUsed={(it, r) => {
             if (!r.buff) return;

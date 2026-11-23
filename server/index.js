@@ -69,14 +69,14 @@ const ELEVATOR_EXITS = {
 // 보물 10종 (1·6·7·8·9층 2개씩) — 블렌더 맵의 관련 물체 옆 빈자리
 const treasures = {
   t1_coupon: { id: "t1_coupon", floor: "1F", name: "카페 쿠폰", position: [7.9, 0.5, 8.4] }, // 카페테리아 건강관리 코너 옆
-  t1_headset: { id: "t1_headset", floor: "1F", name: "황금 헤드셋", position: [6.3, 0.5, -11.6] }, // 강사실 (책장 옆)
+  t1_headset: { id: "t1_headset", floor: "1F", name: "황금 헤드셋", position: [6.3, 0.5, -11.6], small: true }, // 강사실 (책장 옆)
   t6_ksqi: { id: "t6_ksqi", floor: "6F", name: "KSQI 인증패", position: [-15.4, 0.5, 10.25] },
-  t6_dino: { id: "t6_dino", floor: "6F", name: "노란 공룡 인형", position: [-0.6, 0.5, 5.8] },
+  t6_dino: { id: "t6_dino", floor: "6F", name: "노란 공룡 인형", position: [-0.6, 0.5, 5.8], hidden: true },
   t7_cushion: { id: "t7_cushion", floor: "7F", name: "빨간 하트 쿠션", position: [5.33, 0.5, -1.0] },
-  t7_card: { id: "t7_card", floor: "7F", name: "상담실 에티켓 황금 사원증", position: [-8.9, 0.5, -5.3] }, // 중앙 기둥 옆 에티켓 보드
+  t7_card: { id: "t7_card", floor: "7F", name: "상담실 에티켓 황금 사원증", position: [-8.9, 0.5, -5.3], small: true }, // 중앙 기둥 옆 에티켓 보드
   t8_blanket: { id: "t8_blanket", floor: "8F", name: "수면실 포근한 담요", position: [4.2, 0.5, -12.0] }, // 수면실 안마의자 앞
-  t8_remote: { id: "t8_remote", floor: "8F", name: "Clova TV 리모컨", position: [-0.6, 0.5, 6.6] }, // 출입구 왼쪽 TV 선반
-  t9_marker: { id: "t9_marker", floor: "9F", name: "회의실 황금 마커", position: [-7.3, 0.5, 6.0] }, // 회의실 3
+  t8_remote: { id: "t8_remote", floor: "8F", name: "Clova TV 리모컨", position: [-0.6, 0.5, 6.6], hidden: true }, // 출입구 왼쪽 TV 선반
+  t9_marker: { id: "t9_marker", floor: "9F", name: "회의실 황금 마커", position: [-7.3, 0.5, 6.0], small: true }, // 회의실 3
   t9_bulb: { id: "t9_bulb", floor: "9F", name: "정원 코너 황금 전구", position: [3.35, 0.5, -6.6] }, // 휴게실 정원 코너
 };
 
@@ -120,7 +120,7 @@ const cleanLook = (look) => ({
 });
 const clean = (s, max) => String(s ?? "").replace(/[<>]/g, "").trim().slice(0, max);
 const dist2D = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
-const publicPlayer = ({ key, empNo, coffeeTimer, ...p }) => p; // 고유키·사번은 다른 사람에게 보내지 않음
+const publicPlayer = ({ key, empNo, coffeeTimer, radarUntil, ...p }) => p; // 고유키·사번은 다른 사람에게 보내지 않음
 const playersOnFloor = (floor) => [...players.values()].filter((p) => p.floor === floor).map(publicPlayer);
 const elevatorExit = (floor) => [...ELEVATOR_EXITS[floor]];
 
@@ -1449,6 +1449,7 @@ io.on("connection", (socket) => {
         io.to(p.floor).emit("playerAura", { id: p.id, aura: null });
       }, item.duration);
     }
+    if (item.effect === "RADAR_SCAN") p.radarUntil = Date.now() + item.duration + 3000; // 숨은 보물은 스캐너 켜진 동안만 획득
     if (item.effect === "SPEED_BOOST") {
       clearTimeout(p.coffeeTimer);
       p.coffee = true;
@@ -1470,6 +1471,8 @@ io.on("connection", (socket) => {
     if (!item) return reply({ success: false, message: "존재하지 않는 보물입니다." });
     if (player.floor !== item.floor || dist2D(player.position, item.position) > CLAIM_DISTANCE + (player.equipped?.pet ? 1.2 : 0))
       return reply({ success: false, message: "보물에 더 가까이 가야 해요!" });
+    if (item.hidden && !(player.radarUntil > Date.now()))
+      return reply({ success: false, message: "U+ 5G 보물 위치 스캐너를 켜야 보이는 보물이에요!" });
 
     const lockKey = TREASURE_MODE === "first" ? treasureId : `${treasureId}:${player.key}`;
     if (claimLocks.has(lockKey)) return reply({ success: false, message: "처리 중입니다. 잠시만요." });
