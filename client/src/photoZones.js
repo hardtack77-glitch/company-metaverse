@@ -25,7 +25,7 @@ export const PHOTO_ZONES = [
   },
   // 1층 일반강의장 (블렌더 X 9.4~17.6, Y 13.4~23)
   {
-    id: "lecture_1f", floors: ["1F"], x: [9.4, 17.6], z: [-14.65, -5.05], title: "일반강의장",
+    id: "lecture_1f", floors: ["1F"], x: [9.4, 17.6], z: [-18.2, -8.6], title: "일반강의장",
     photos: ["lecture_1.jpg", "lecture_2.jpg"], thumb: "lecture_thumb.jpg",
     text: "입사 후 교육을 받는 일반강의장이에요. 스크린과 화이트보드가 갖춰져 있어 강사님과 함께 상담 업무를 차근차근 배울 수 있어요.",
   },
