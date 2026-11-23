@@ -183,3 +183,6 @@ export const shopInfo = () => request("shopInfo", null, SHOP_FAIL);
 export const buyItem = (id) => request("buyItem", id, SHOP_FAIL);
 export const sellItem = (id) => request("sellItem", id, SHOP_FAIL);
 export const useItem = (id) => request("useItem", id, SHOP_FAIL);
+
+// 📺 1층 TV 센터 소식
+export const newsInfo = () => request("newsInfo", null, { ok: false, feed: [], champs: [] });

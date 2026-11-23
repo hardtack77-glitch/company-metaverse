@@ -60,7 +60,7 @@ const ELEVATOR_EXITS = {
 // 보물 10종 (1·6·7·8·9층 2개씩) — 블렌더 맵의 관련 물체 옆 빈자리
 const treasures = {
   t1_coupon: { id: "t1_coupon", floor: "1F", name: "카페 쿠폰", position: [7.9, 0.5, 8.4] }, // 카페테리아 건강관리 코너 옆
-  t1_headset: { id: "t1_headset", floor: "1F", name: "황금 헤드셋", position: [5.9, 0.5, -14.2] }, // 강사실 (가운데 빈 공간 동쪽)
+  t1_headset: { id: "t1_headset", floor: "1F", name: "황금 헤드셋", position: [6.3, 0.5, -11.6] }, // 강사실 (책장 옆)
   t6_ksqi: { id: "t6_ksqi", floor: "6F", name: "KSQI 인증패", position: [-15.4, 0.5, 10.25] },
   t6_dino: { id: "t6_dino", floor: "6F", name: "노란 공룡 인형", position: [-0.6, 0.5, 5.8] },
   t7_cushion: { id: "t7_cushion", floor: "7F", name: "빨간 하트 쿠션", position: [5.33, 0.5, -1.0] },
@@ -588,6 +588,35 @@ app.get("/admin/users", async (req, res) => {
 <table><tr><th>사번</th><th>이름</th><th>명단 대조</th><th>가입일</th><th>마지막 로그인</th><th></th></tr>${rows || "<tr><td colspan=6>아직 가입한 사람이 없어요.</td></tr>"}</table></body></html>`);
 });
 
+/* ───────── 📺 센터 소식 (1층 엘리베이터 통로 TV) ─────────
+   - 보물 발견 · 미니게임 기록 · 신규 가입 소식을 최근 20개까지 모아 모두에게 실시간 전송
+   - TV 는 최근 소식 + 이번 주 미니게임 1위를 돌아가며 보여 줌                            */
+const newsFeed = [];
+let newsSeq = 0;
+function pushNews(icon, text) {
+  const item = { id: ++newsSeq, icon, text, at: new Date().toISOString() };
+  newsFeed.unshift(item);
+  newsFeed.length = Math.min(newsFeed.length, 20);
+  io.emit("news", item);
+}
+const newsName = (p) => (p?.guest || !p?.empNo ? "방문자" : p.name);
+function gameNews(p, game, g) {
+  const n = newsName(p);
+  if (game === "rps" && g.result === "win") pushNews("✊", `${n}님 가위바위보 승리!`);
+  if (game === "omok" && g.result === "win" && !g.resigned) pushNews("⚫", `${n}님 오목 대결에서 승리!`);
+  if (game === "shell" && g.score === 3) pushNews("🥤", `${n}님 야바위 3판 모두 맞혔어요!`);
+  if (game === "reaction" && g.avg) pushNews("📞", `${n}님 콜 받기 평균 ${g.avg}ms`);
+  if (game === "empathy" && g.score >= 70) pushNews("💗", `${n}님 공감응대 챌린지 ${g.score}점!`);
+  if (game === "baseball" && g.success) pushNews("⚾", `${n}님 숫자야구 ${g.tries}번 만에 정답!`);
+  if (game === "memory" && g.seconds) pushNews("🃏", `${n}님 카드 짝맞추기 ${g.seconds}초 완료`);
+}
+function weeklyChamps() {
+  const r = buildRankings("week");
+  return Object.entries(r)
+    .filter(([, v]) => v.top.length)
+    .map(([k, v]) => ({ game: GAME_KO[k] || k, name: v.top[0].name, value: v.top[0].value }));
+}
+
 /* ───────── 🛒 포인트 지갑 (회원 전용) ─────────
    - 사번별 포인트·가방·장착 상태 → Firestore "wallets" 에 저장 (서버가 다시 켜져도 유지)
    - 처음 쓰는 회원은 500P + 커피 1잔으로 시작
@@ -619,6 +648,7 @@ function addPoints(p, amount, reason) {
 }
 // 미니게임 보상 (하루 상한 적용)
 function awardGame(p, game, g) {
+  gameNews(p, game, g);
   if (!p?.empNo) return 0;
   const w = getWallet(p.empNo);
   const today = kstDay();
@@ -807,6 +837,7 @@ io.on("connection", (socket) => {
     if (users.has(no)) return reply({ ok: false, message: "이미 가입된 사번이에요. 로그인해 주세요." });
     const u = { empNo: no, name: nm, pass: hashPassword(pw), look: null, createdAt: new Date().toISOString(), lastLogin: new Date().toISOString() };
     users.set(no, u);
+    pushNews("👋", `${nm}님이 메타버스에 처음 들어왔어요. 환영해요!`);
     await saveUser(u);
     console.log(`[회원가입] ${nm} (${no})`);
     reply({ ok: true, token: makeToken(no), user: userPublic(u) });
@@ -1312,6 +1343,9 @@ io.on("connection", (socket) => {
 
   // 5) 보물 획득 요청 → 서버 검증 → 콜백으로 결과 응답
   // 🛒 아이템 상점 (회원 전용) — 포인트·가방·장착은 모두 서버가 관리
+  socket.on("newsInfo", (_, ack) => {
+    if (typeof ack === "function") ack({ ok: true, feed: newsFeed, champs: weeklyChamps() });
+  });
   socket.on("shopInfo", (_, ack) => {
     const reply = typeof ack === "function" ? ack : () => {};
     const p = member(reply);
@@ -1435,6 +1469,7 @@ io.on("connection", (socket) => {
       await saveClaim(treasureId, player);
       set.add(player.key);
       const bonus = player.empNo ? addPoints(player, TREASURE_POINTS, `[${item.name}] 보물 발견`) : 0;
+      pushNews("🎁", `${newsName(player)}님이 ${item.floor} [${item.name}] 보물을 찾았어요!`);
 
       reply({
         success: true,
