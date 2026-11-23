@@ -942,23 +942,23 @@ io.on("connection", (socket) => {
     if (!p) return reply({ ok: false, message: "먼저 입장해 주세요." });
     if (!FLOORS.includes(floor)) return reply({ ok: false, message: "없는 층입니다." });
     if (floor === p.floor) return reply({ ok: false, message: `이미 ${floor}에 있어요.` });
-    if (viaStairs) {
-      if (!STAIRS[p.floor] || !STAIRS[floor] || dist2D(p.position, STAIRS[p.floor]) > STAIR_DISTANCE)
-        return reply({ ok: false, message: "계단실 안에서 이용해 주세요." });
-    } else if (dist2D(p.position, ELEVATORS[p.floor]) > ELEVATOR_DISTANCE)
-      return reply({ ok: false, message: "엘리베이터 앞에서 이용해 주세요." });
+    // 엘리베이터 앞 또는 계단실 계단참 어디서든 이동 가능 (서 있는 곳으로 판단)
+    const nearElev = dist2D(p.position, ELEVATORS[p.floor]) <= ELEVATOR_DISTANCE;
+    const nearStairs = !!STAIRS[p.floor] && !!STAIRS[floor] && dist2D(p.position, STAIRS[p.floor]) <= STAIR_DISTANCE;
+    if (!nearElev && !nearStairs) return reply({ ok: false, message: "엘리베이터 앞이나 계단실에서 이용해 주세요." });
+    const useStairs = nearStairs && (viaStairs || !nearElev);
 
     const from = p.floor;
     socket.leave(from);
     socket.to(from).emit("playerLeft", socket.id);
 
     p.floor = floor;
-    p.position = viaStairs ? [...STAIRS[floor]] : elevatorExit(floor);
+    p.position = useStairs ? [...STAIRS[floor]] : elevatorExit(floor);
     socket.join(floor);
     socket.to(floor).emit("playerJoined", publicPlayer(p));
 
     reply({ ok: true, floor, position: p.position, players: playersOnFloor(floor), chatLog: chatLog(floor) });
-    console.log(`[${viaStairs ? "계단" : "엘리베이터"}] ${p.name} ${from} → ${floor}`);
+    console.log(`[${useStairs ? "계단" : "엘리베이터"}] ${p.name} ${from} → ${floor}`);
   });
 
   // 3-2) 다트 게임 점수 → 최고 기록·랭킹 응답, 같은 층에 소식 알림
