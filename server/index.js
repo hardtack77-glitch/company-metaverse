@@ -111,6 +111,21 @@ const players = new Map();
 const foundBy = Object.fromEntries(Object.keys(treasures).map((id) => [id, new Set()]));
 const claimLocks = new Set(); // 동시 요청 순서 보장용
 
+/* ───────── 🔄 보물찾기 주간 초기화 ─────────
+   매주 일요일 낮 12:00 (한국시간)에 모든 보물이 다시 나타나서 누구나 다시 찾을 수 있어요.
+   지난 기록은 Firestore 에 그대로 남고, 이번 회차(일요일 12시 이후) 기록만 "찾음"으로 봐요. */
+const RESET_DOW = 0;   // 0=일요일
+const RESET_HOUR = 12; // 한국시간 12시
+function treasureRoundStart(now = Date.now()) {
+  const k = new Date(now + 9 * 3600000); // KST 를 UTC 필드로 다룸
+  const start = new Date(Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate(), RESET_HOUR));
+  start.setUTCDate(start.getUTCDate() - ((k.getUTCDay() - RESET_DOW + 7) % 7));
+  if (start > k) start.setUTCDate(start.getUTCDate() - 7);
+  return start.getTime() - 9 * 3600000; // 실제 UTC 시각(ms)
+}
+let treasureRound = treasureRoundStart();
+const roundId = () => new Date(treasureRound + 9 * 3600000).toISOString().slice(0, 10); // 예: 2026-11-22
+
 const COLORS = ["#e6007e", "#ff8a00", "#00a3e0", "#22b573", "#8e44ad", "#f1c40f", "#e74c3c", "#1abc9c"];
 const randomColor = () => COLORS[Math.floor(Math.random() * COLORS.length)];
 const LOOK_TYPES = ["male", "female_long", "female_short"];
@@ -760,12 +775,12 @@ async function initStorage() {
     const { default: admin } = await import("firebase-admin");
     admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
     db = admin.firestore();
-    const snap = await db.collection("treasureClaims").get();
+    const snap = await db.collection("treasureClaims").where("at", ">=", new Date(treasureRound).toISOString()).get();
     snap.forEach((doc) => {
       const { treasureId, key } = doc.data();
       if (foundBy[treasureId] && key) foundBy[treasureId].add(key);
     });
-    console.log(`✅ 보물 기록: Firestore 연결 (기존 기록 ${snap.size}건 복원)`);
+    console.log(`✅ 보물 기록: Firestore 연결 (이번 주 ${roundId()} 회차 기록 ${snap.size}건 복원)`);
     for (const [col, arr] of [["reactionGames", reactionGames], ["empathyGames", empathyGames], ["baseballGames", baseballGames], ["memoryGames", memoryGames]]) {
       const snap = await db.collection(col).orderBy("at").limitToLast(5000).get();
       snap.forEach((doc) => arr.push(doc.data()));
@@ -805,12 +820,13 @@ async function initStorage() {
 async function saveClaim(treasureId, player) {
   if (!db) return; // 메모리 모드
   // 문서 ID = 보물+사람 (선착순 모드는 보물만) → create() 는 이미 있으면 실패하므로 DB 차원에서도 중복 차단
-  const docId = TREASURE_MODE === "first" ? treasureId : `${treasureId}_${player.key}`;
+  const docId = (TREASURE_MODE === "first" ? treasureId : `${treasureId}_${player.key}`) + `_${roundId()}`;
   try {
     await db.collection("treasureClaims").doc(docId).create({
       treasureId,
       key: player.key,
       name: player.name,
+      round: roundId(),
       at: new Date().toISOString(),
     });
   } catch (err) {
@@ -1535,6 +1551,18 @@ io.on("connection", (socket) => {
 });
 
 await initStorage();
+function resetTreasuresIfNewWeek() {
+  const start = treasureRoundStart();
+  if (start === treasureRound) return;
+  treasureRound = start;
+  for (const set of Object.values(foundBy)) set.clear();
+  claimLocks.clear();
+  for (const [sid, p] of players) io.to(sid).emit("treasuresReset", { treasures: treasuresFor(p.key) });
+  pushNews("🔄", "보물찾기가 초기화됐어요! 모든 보물이 다시 숨겨졌어요. 다시 찾아보세요!");
+  console.log(`[보물] 주간 초기화 → ${roundId()} 회차`);
+}
+setInterval(resetTreasuresIfNewWeek, 30 * 1000);
+
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ 서버 실행: http://localhost:${PORT} (보물 모드: ${TREASURE_MODE}, 층: ${FLOORS.join("/")})`);
 });
