@@ -136,7 +136,7 @@ const cleanLook = (look) => ({
 });
 const clean = (s, max) => String(s ?? "").replace(/[<>]/g, "").trim().slice(0, max);
 const dist2D = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
-const publicPlayer = ({ key, empNo, coffeeTimer, radarUntil, ...p }) => p; // 고유키·사번은 다른 사람에게 보내지 않음
+const publicPlayer = ({ key, empNo, buffTimer, radarUntil, ...p }) => p; // 고유키·사번은 다른 사람에게 보내지 않음
 const playersOnFloor = (floor) => [...players.values()].filter((p) => p.floor === floor).map(publicPlayer);
 const elevatorExit = (floor) => [...ELEVATOR_EXITS[floor]];
 
@@ -649,6 +649,36 @@ function weeklyChamps() {
    - 미니게임은 NPC 에게 이기면 게임마다 하루 1번 50P (허유경 센터장 오목은 100P), 자정에 초기화 */
 const wallets = new Map(); // 사번 → { empNo, points, bag, equipped, day, dayGame }
 const kstDay = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+const nextKstMidnight = (now = Date.now()) => (Math.floor((now + 9 * 3600000) / 86400000) + 1) * 86400000 - 9 * 3600000;
+
+/* ───────── ⚡ 아이템 효과 (지갑에 끝나는 시각 저장 → 층 이동·새로고침·재접속해도 유지) ─────────
+   w.buffs = { coffee: 끝, radar: 끝, wave: 민트빛 파동 끝, refresh: '상쾌함 충전!' 끝(자정) } */
+const buffView = (w) => {
+  const now = Date.now();
+  return Object.fromEntries(Object.entries(w.buffs || {}).filter(([, t]) => t > now));
+};
+function syncBuffs(p) {
+  if (!p?.empNo) return;
+  const w = getWallet(p.empNo);
+  const b = (w.buffs ||= {});
+  const now = Date.now();
+  const coffee = (b.coffee || 0) > now;
+  const wave = (b.wave || 0) > now;
+  const aura = (b.refresh || 0) > now ? "✨ 상쾌함 충전!" : null;
+  p.radarUntil = (b.radar || 0) + 3000; // 숨은 보물은 스캐너 켜진 동안만 획득
+  if (!!p.coffee !== coffee) {
+    p.coffee = coffee;
+    io.to(p.floor).emit("playerCoffee", { id: p.id, on: coffee });
+  }
+  if ((p.aura || null) !== aura || !!p.wave !== wave) {
+    p.aura = aura;
+    p.wave = wave;
+    io.to(p.floor).emit("playerAura", { id: p.id, aura, wave });
+  }
+  clearTimeout(p.buffTimer);
+  const next = Math.min(...[b.coffee, b.wave, b.refresh].filter((t) => t > now));
+  if (Number.isFinite(next)) p.buffTimer = setTimeout(() => syncBuffs(p), Math.min(next - now + 50, 2 ** 31 - 1));
+}
 function getWallet(empNo) {
   if (!empNo) return null;
   let w = wallets.get(empNo);
@@ -676,7 +706,7 @@ function walletDay(w) {
 // 오늘 아직 이기지 않은 게임의 보상 합계 / 게임별 오늘 보상 받았는지
 const gamesLeft = (w) => Object.keys(GAME_WIN).filter((g) => !walletDay(w).dayWins[g]);
 const walletView = (w) => ({
-  points: w.points, bag: w.bag, equipped: w.equipped,
+  points: w.points, bag: w.bag, equipped: w.equipped, buffs: buffView(w),
   gameLeft: gamesLeft(w).reduce((s, g) => s + gameReward(g), 0),
   gameToday: Object.keys(GAME_WIN).map((g) => ({ game: g, name: GAME_KO[g], reward: gameReward(g), rule: GAME_WIN_RULE[g], done: !!w.dayWins[g] })),
 });
@@ -974,6 +1004,7 @@ io.on("connection", (socket) => {
     if (member) player.quest = questTitle(getWallet(member.empNo)); // 진행 중 퀘스트 → 머리 위 표시
     players.set(socket.id, player);
     socket.join(player.floor);
+    syncBuffs(player); // 남아 있는 아이템 효과 복원
     if (member && JSON.stringify(member.look) !== JSON.stringify(player.look)) {
       member.look = player.look; // 회원은 고른 캐릭터를 계정에 저장
       saveUser(member);
@@ -1518,7 +1549,6 @@ io.on("connection", (socket) => {
     console.log(`[상점] ${p.name}(${p.empNo}) 판매 ${item.name} +${item.sellPrice}P → ${w.points}P`);
     reply({ ok: true, wallet: walletView(w), message: `💰 ${item.name} 판매 완료! (+${item.sellPrice}P)` });
   });
-  let auraTimer = null;
   socket.on("useItem", (itemId, ack) => {
     const reply = typeof ack === "function" ? ack : () => {};
     const p = shopGuard(reply);
@@ -1537,36 +1567,29 @@ io.on("connection", (socket) => {
     }
     w.bag[itemId] -= 1;
     if (w.bag[itemId] <= 0) delete w.bag[itemId];
-    // (B) 럭키 다트 티켓
+    // (B) 럭키 다트 티켓 → 당첨 점수는 다트 퀘스트 점수로도 인정
     if (item.type === "gacha") {
       const prize = drawDart(crypto.randomInt);
       w.points += prize;
       saveWallet(w);
       console.log(`[상점] ${p.name}(${p.empNo}) 다트 티켓 → ${prize}P`);
-      return reply({ ok: true, wallet: walletView(w), prize, message: `🎯 불스아이! ${prize}P 당첨!` });
+      reply({ ok: true, wallet: walletView(w), prize, message: `🎯 불스아이! ${prize}P 당첨!` });
+      questEvent(p, { kind: "dart", score: prize });
+      return;
     }
-    // (C) 소모품: 효과는 화면에서, 상쾌 스프레이는 같은 층 모두에게 보임
-    saveWallet(w);
+    // (C) 소모품: 끝나는 시각을 지갑에 저장 (같은 효과를 또 쓰면 지금부터 다시 계산)
+    const now = Date.now();
+    const b = (w.buffs ||= {});
+    if (item.effect === "SPEED_BOOST") b.coffee = now + item.duration;
+    if (item.effect === "RADAR_SCAN") b.radar = now + item.duration;
     if (item.effect === "AURA_EMOJI") {
-      clearTimeout(auraTimer);
-      p.aura = "✨ 상쾌함 충전!";
-      io.to(p.floor).emit("playerAura", { id: p.id, aura: p.aura });
-      auraTimer = setTimeout(() => {
-        p.aura = null;
-        io.to(p.floor).emit("playerAura", { id: p.id, aura: null });
-      }, item.duration);
+      b.wave = now + item.duration; // 민트빛 파동 1시간
+      b.refresh = nextKstMidnight(now); // '상쾌함 충전!' 오늘 자정까지
     }
-    if (item.effect === "RADAR_SCAN") p.radarUntil = Date.now() + item.duration + 3000; // 숨은 보물은 스캐너 켜진 동안만 획득
-    if (item.effect === "SPEED_BOOST") {
-      clearTimeout(p.coffeeTimer);
-      p.coffee = true;
-      io.to(p.floor).emit("playerCoffee", { id: p.id, on: true });
-      p.coffeeTimer = setTimeout(() => {
-        p.coffee = false;
-        io.to(p.floor).emit("playerCoffee", { id: p.id, on: false });
-      }, item.duration);
-    }
-    reply({ ok: true, wallet: walletView(w), buff: { effect: item.effect, duration: item.duration }, message: `⚡ ${item.name} 사용! (${item.duration / 1000}초)` });
+    saveWallet(w);
+    syncBuffs(p);
+    const len = item.duration >= 3600000 ? `${item.duration / 3600000}시간` : `${item.duration / 60000}분`;
+    reply({ ok: true, wallet: walletView(w), buff: { effect: item.effect, duration: item.duration }, message: `⚡ ${item.name} 사용! (${len})` });
   });
 
   socket.on("claimTreasure", async (treasureId, ack) => {
@@ -1633,8 +1656,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     const p = players.get(socket.id);
     if (!p) return;
-    clearTimeout(auraTimer);
-    clearTimeout(p.coffeeTimer);
+    clearTimeout(p.buffTimer);
     players.delete(socket.id);
     io.to(p.floor).emit("playerLeft", socket.id);
     io.emit("onlineCount", players.size);
