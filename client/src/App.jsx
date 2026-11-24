@@ -138,10 +138,8 @@ const BASE_NPCS = [
   {
     id: "npc_1f_desk", floor: "1F", name: "안내데스크 매니저", color: "#e6007e", position: [3.95, 0, 5.6], rotationY: -Math.PI / 2,
     dialog: [
-      "LG유플러스 대구고객센터 가상 오피스에 오신 걸 환영합니다!",
-      "보물은 1층부터 6·7·8·9층까지 모든 층 곳곳에 숨겨져 있어요. 노란 상자를 찾아보세요!",
-      "층 이동은 엘리베이터 홀의 파란 원 위에서 할 수 있어요.",
-      "층마다 있는 채용담당자에게 말을 걸면 미니게임, 임직원 추천 등 더 많은 정보를 얻을 수 있어요!",
+      "LG유플러스 대구고객센터 가상 오피스에 오신 걸 환영합니다! 저는 안내데스크 매니저예요.",
+      "궁금한 내용을 아래 버튼에서 골라 주세요. 게임 안의 모든 걸 알려 드릴게요! 😊",
     ],
   },
   {
@@ -150,6 +148,72 @@ const BASE_NPCS = [
   },
 ];
 const NPCS = [...BASE_NPCS, ...STAFF_NPCS, ...RECRUITERS];
+// 🛎️ 1층 안내데스크 매니저의 게임 안내 (버튼으로 주제 고르기 · 한 줄 = 한 페이지)
+const DESK_GUIDE = [
+  {
+    key: "start", label: "🕹️ 기본 조작", lines: [
+      "왼쪽 아래 동그란 조이스틱을 밀면 걸어 다녀요. PC에서는 방향키나 WASD도 돼요.",
+      "NPC·보물·엘리베이터 가까이 가면 오른쪽 아래에 큰 버튼(대화하기·보물 열기·층간 이동)이 떠요. 눌러서 이용해요.",
+      "오른쪽 위 🎥 버튼으로 시점을 바꿔요: 정면 보기 → 1인칭 보기 → 위에서 보기.",
+      "화면 아래 입력창에 글을 쓰면 같은 층 사람들에게 말풍선으로 보여요. 😊 동작 버튼으로 손 흔들기 같은 동작도 할 수 있어요.",
+      "실제 사진이 있는 곳에 가면 왼쪽에 사진 카드가 떠요. 터치하면 실제 센터 모습을 크게 볼 수 있어요. 📷",
+    ],
+  },
+  {
+    key: "floor", label: "🛗 층 이동", lines: [
+      "우리 센터는 1층(로비·교육장), 6층(센터장실·사무실), 7·8·9층(상담실)으로 되어 있어요.",
+      "엘리베이터 홀의 파란 원 위에 서면 '층간 이동' 버튼이 떠요. 눌러서 가고 싶은 층을 고르세요. 🛗",
+      "엘리베이터 홀 왼쪽 벽의 비상구 문으로 들어가면 계단실이 나와요. 초록 원 위에서도 엘리베이터처럼 층을 옮길 수 있어요. 🚶",
+    ],
+  },
+  {
+    key: "treasure", label: "🎁 보물찾기", lines: [
+      "보물 10개가 1층과 6·7·8·9층 곳곳에 숨겨져 있어요. 노랗게 빛나는 상자를 찾아 가까이 가서 열어 보세요!",
+      "그중 3개는 크기가 작아서 찾기 어렵고, 2개는 '📡 U+ 5G 보물 위치 스캐너'를 켜야만 보이는 숨은 보물이에요.",
+      "보물 1개마다 50P, 이번 주 10개를 모두 찾으면 200P를 더 드려서 한 주에 최대 700P를 받을 수 있어요.",
+      "보물은 매주 일요일 낮 12시에 모두 다시 숨겨져요. 그때부터 다시 찾을 수 있어요! 🔄",
+      "왼쪽 위 '🎁 보물 0/10개'를 누르면 내가 찾은 보물 목록을 볼 수 있어요.",
+    ],
+  },
+  {
+    key: "game", label: "🎮 미니게임", lines: [
+      "실장님들께 말을 걸면 미니게임을 할 수 있어요 (회원 전용).",
+      "1층 황율산 실장: 카드 짝맞추기 🃏\n7층 손설희 실장: 야바위 🥤 · 김윤혜 실장: 공감 응대 💗\n8층 이준민 실장: 가위바위보 ✊\n9층 김민정 실장: 숫자야구 ⚾ · 백영주 실장: 콜 받기 📞",
+      "6층 허유경 센터장님과는 오목 대결을 할 수 있어요. ⚫ 실력이 좋으시니 각오하세요!",
+      "게임에서 이기면 게임마다 하루 1번 50P, 허유경 센터장님 오목은 하루 1번 100P를 받아요. 매일 자정에 다시 받을 수 있어요.",
+      "이기는 기준: 가위바위보·오목은 승리, 숫자야구는 정답, 야바위는 3판 중 2판 이상, 콜 받기는 평균 0.6초 이내, 공감 응대는 70점 이상, 카드 짝맞추기는 끝까지 맞추기예요.",
+      "1층 북카페의 BULLSEYE 다트 머신에서는 누구나 다트를 던질 수 있어요. 🎯 오른쪽 위 🏆 랭킹에서 게임별 순위도 볼 수 있어요.",
+    ],
+  },
+  {
+    key: "shop", label: "🛒 아이템·포인트", lines: [
+      "회원은 처음에 500P와 커피 1잔을 받고 시작해요. 오른쪽 🎒 버튼에 내 포인트가 보여요.",
+      "아이템은 층마다 돌아다니는 채용담당자에게 말을 걸면 '아이템 상점'에서 사고팔 수 있어요. 🛒",
+      "☕ 아이스 아메리카노(100P): 30초 동안 1.5배 빨리 걷기\n📡 5G 보물 스캐너(200P): 20초 동안 보물 방향 안내 + 숨은 보물이 보여요\n🌿 피톤치드 스프레이(80P): 15초 동안 상쾌한 효과",
+      "🎧 골드 헤드셋(500P) · 🪭 미니 선풍기(300P, 항상 15% 빨리 걷기) · 🦖 노란 공룡 펫(800P, 보물을 더 멀리서 열 수 있음) · 🐦 황금새(1,000P, 어깨에 앉는 새)",
+      "🎯 럭키 다트 티켓(250P)을 쓰면 50P ~ 1,000P가 랜덤으로 당첨돼요.",
+      "산 아이템은 오른쪽 🎒 가방에서 쓰거나 장착해요. 장착한 아이템은 다른 사람에게도 보여요. 필요 없는 아이템은 채용담당자에게 되팔 수 있어요.",
+    ],
+  },
+  {
+    key: "quest", label: "📜 퀘스트", lines: [
+      "로비 가운데 김지연 센터장님께 말을 걸면 퀘스트를 받을 수 있어요 (회원 전용).",
+      "퀘스트는 한 번에 1개만 할 수 있어요. 하는 동안 머리 위에 '📜 퀘스트 수행중'이 뜨고, 왼쪽 위에 진행 상황이 보여요.",
+      "공감을 넘어 감동으로(1)~(4): 강사·코치·팀장·실장님 모두에게 '💌 메시지 남기기'로 감사인사를 남기면 각 500P!",
+      "허유경 센터장을 이겨라(오목 승리) 1,000P · 게임의 신(실장님 게임 모두 승리) 300P · 다트의 달인(300점) 500P · 다트의 신(400점) 1,000P",
+      "퀘스트를 시작한 뒤에 한 것만 인정되고, 퀘스트마다 한 번만 완료할 수 있어요. 그만두면 처음부터 다시 해요.",
+    ],
+  },
+  {
+    key: "etc", label: "💌 메시지·채용", lines: [
+      "NPC에게 말을 걸고 '💌 메시지 남기기'를 누르면 응원이나 감사 메시지를 남길 수 있어요. 답장이 오면 📬 메시지함에 알림이 떠요.",
+      "층마다 있는 채용담당자에게 말을 걸면 대구센터 채용 정보, 임직원 추천도 볼 수 있어요.",
+      "1층 TV와 상담층 입구 TV에서는 게임 점수, 보물 소식, 퀘스트 완료 같은 센터 소식이 계속 나와요. 📺",
+      "보물찾기·게임 포인트·아이템·퀘스트는 회원가입한 임직원만 이용할 수 있어요. 방문자는 자유롭게 둘러보세요!",
+    ],
+  },
+];
+
 
 // glb 가 없을 때 쓰는 임시 맵의 층별 분위기
 const FLOOR_THEME = {
@@ -2412,6 +2476,22 @@ export default function App() {
         <div style={styles.dialog} onClick={nextDialog}>
           <div style={styles.dialogTitle}>{dialog.title}</div>
           <p style={styles.dialogText}>{dialog.lines[dialog.page]}</p>
+          {dialog.npc?.id === "npc_1f_desk" && dialog.page === dialog.lines.length - 1 && (
+            <div style={styles.guideGrid}>
+              {DESK_GUIDE.map((g) => (
+                <button
+                  key={g.key}
+                  style={styles.guideBtn}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openDialog(`${dialog.npc.name} · ${g.label}`, [...g.lines, "다른 내용이 궁금하면 아래 버튼을 눌러 주세요!"], dialog.npc);
+                  }}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          )}
           {dialog.npc && dialog.page === dialog.lines.length - 1 ? (
             <div style={styles.dialogActions}>
               {dialog.npc.game === "memory" && (
@@ -2603,6 +2683,8 @@ const styles = {
   menuBtn: { textAlign: "left", background: "#1f2937", color: "#fff", border: "1px solid #4b5563", borderRadius: 10, padding: "11px 14px", fontSize: 15, fontWeight: 700 },
   menuClose: { background: "transparent", color: "#9ca3af", border: 0, fontSize: 16, padding: 4 },
   dialogActions: { display: "flex", gap: 8, marginTop: 4 },
+  guideGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, margin: "0 0 8px" },
+  guideBtn: { background: "#374151", color: "#fff", border: "1px solid #6b7280", borderRadius: 10, padding: "8px 4px", fontSize: 13, fontWeight: 700 },
   dialogMsgBtn: { flex: 1, background: "#e6007e", color: "#fff", border: 0, borderRadius: 10, padding: "10px 0", fontSize: 15, fontWeight: 700 },
   dialogCloseBtn: { flex: "0 0 84px", background: "#374151", color: "#fff", border: 0, borderRadius: 10, padding: "10px 0", fontSize: 15 },
   dialogHint: { fontSize: 12, color: "#9ca3af", textAlign: "right" },
