@@ -209,7 +209,7 @@ const DESK_GUIDE = [
       "NPC에게 말을 걸고 '💌 메시지 남기기'를 누르면 응원이나 감사 메시지를 남길 수 있어요. 답장이 오면 📬 메시지함에 알림이 떠요.",
       "층마다 있는 채용담당자에게 말을 걸면 대구센터 채용 정보, 임직원 추천도 볼 수 있어요.",
       "1층 TV와 상담층 입구 TV에서는 게임 점수, 보물 소식, 퀘스트 완료 같은 센터 소식이 계속 나와요. 📺",
-      "보물찾기·게임 포인트·아이템·퀘스트는 회원가입한 임직원만 이용할 수 있어요. 방문자는 자유롭게 둘러보세요!",
+      "채팅·메시지 남기기·보물찾기·게임 포인트·아이템·퀘스트는 회원가입한 임직원만 이용할 수 있어요. 방문자는 자유롭게 둘러보세요!",
     ],
   },
 ];
@@ -2120,7 +2120,7 @@ export default function App() {
 
   const sendChat = (e) => {
     e.preventDefault();
-    if (!chat.trim()) return;
+    if (!chat.trim() || me?.guest) return;
     socket.emit("chat", chat);
     setChat("");
     document.activeElement?.blur(); // 모바일 키보드 닫기
@@ -2493,15 +2493,17 @@ export default function App() {
             >
               3. 인사하기
             </button>
-            <button
-              style={styles.menuBtn}
-              onClick={() => {
-                setRecruiter(null);
-                setMsgTarget({ id: "recruiter", name: "채용담당자" });
-              }}
-            >
-              4. 💌 메시지 남기기
-            </button>
+            {!me?.guest && (
+              <button
+                style={styles.menuBtn}
+                onClick={() => {
+                  setRecruiter(null);
+                  setMsgTarget({ id: "recruiter", name: "채용담당자" });
+                }}
+              >
+                4. 💌 메시지 남기기
+              </button>
+            )}
             <button
               style={{ ...styles.menuBtn, background: "#e6007e", color: "#fff", borderColor: "#e6007e" }}
               onClick={() => {
@@ -2637,16 +2639,18 @@ export default function App() {
                   ✊ 가위바위보 하기
                 </button>
               )}
-              <button
-                style={styles.dialogMsgBtn}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMsgTarget(dialog.npc);
-                  setDialog(null);
-                }}
-              >
-                💌 메시지 남기기
-              </button>
+              {!me?.guest && (
+                <button
+                  style={styles.dialogMsgBtn}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMsgTarget(dialog.npc);
+                    setDialog(null);
+                  }}
+                >
+                  💌 메시지 남기기
+                </button>
+              )}
               <button
                 style={styles.dialogCloseBtn}
                 onClick={(e) => {
@@ -2670,11 +2674,14 @@ export default function App() {
           style={styles.chatInput}
           value={chat}
           onChange={(e) => setChat(e.target.value)}
-          placeholder={`${floor} 사람들에게 메시지`}
+          placeholder={me.guest ? "방문자는 채팅을 할 수 없어요 (임직원 회원 전용)" : `${floor} 사람들에게 메시지`}
           maxLength={80}
           enterKeyHint="send"
+          disabled={!!me.guest}
         />
-        <button style={styles.chatBtn} type="submit">전송</button>
+        <button style={{ ...styles.chatBtn, ...(me.guest ? { background: "#9ca3af" } : null) }} type="submit" disabled={!!me.guest}>
+          전송
+        </button>
       </form>
     </div>
   );
