@@ -99,7 +99,12 @@ const AUTO_DOOR_RANGE = 2.1; // 이 거리 안에 사람이 있으면 열림
 // 회전문: Revolving_Door_Wing_* 날개를 가운데 기둥 기준으로 돌림 (사람이 안을 지나가면 회전)
 const REVOLVING_WING = /^Revolving_Door_Wing_/;
 const REVOLVING_POST = /^Revolving_Door_Center_Post/;
-const REVOLVING_RANGE = 1.5; // 회전문 가운데에서 이 거리 안이면 회전
+const REVOLVING_RANGE = 1.5;
+// 여닫이문: SwingDoor_<id>_H<min|max>_O<p|n> (블렌더 좌표 기준 경첩 위치·열리는 쪽), 부품은 SwingDoorPart_<id>_*
+const SWING_DOOR = /^SwingDoor_([A-Za-z0-9]+)_H(min|max)_O([pn])/;
+const SWING_PART = /^SwingDoorPart_([A-Za-z0-9]+)_/;
+const SWING_RANGE = 1.7; // 문 가운데에서 이 거리 안에 사람이 있으면 열림
+const SWING_ANGLE = (Math.PI / 2) * 0.95; // 회전문 가운데에서 이 거리 안이면 회전
 const LIVE_ME = new THREE.Vector3(9999, 0, 9999); // 내 위치 (자동문 감지용)
 const LIVE_OTHERS = new Map(); // 같은 층 다른 직원 위치
 const LIVE_ME_ROT = { y: 0 }; // 내 몸 방향 (종이비행기 날리는 방향)
@@ -187,9 +192,9 @@ function useAvailableMaps(floors) {
 
 function GlbMap({ url, onBounds, onColliders }) {
   const { scene } = useGLTF(url);
-  const doors = useRef({ groups: [], revolve: null });
+  const doors = useRef({ groups: [], revolve: null, swings: [] });
   useFrame((_, dt) => {
-    const { groups, revolve } = doors.current;
+    const { groups, revolve, swings } = doors.current;
     const near = (c, r) => {
       const hit = (p) => Math.hypot(p.x - c.x, p.z - c.z) < r;
       if (hit(LIVE_ME)) return true;
@@ -203,6 +208,13 @@ function GlbMap({ url, onBounds, onColliders }) {
       g.open = next;
       const e = next * next * (3 - 2 * next); // 부드럽게 (smoothstep)
       for (const { obj, base, dir } of g.parts) obj.position[g.axis] = base + dir * AUTO_DOOR_SLIDE * e;
+    }
+    for (const d of swings || []) {
+      const want = near(d.center, SWING_RANGE) ? 1 : 0;
+      const next = THREE.MathUtils.damp(d.open, want, want ? 6 : 2.5, dt);
+      if (Math.abs(next - d.open) < 1e-4) continue;
+      d.open = next;
+      d.pivot.rotation.y = d.sign * SWING_ANGLE * (next * next * (3 - 2 * next));
     }
     if (revolve) {
       const want = near(revolve.center, REVOLVING_RANGE) ? 1.0 : 0; // rad/s (초당 약 1/6바퀴)
@@ -260,7 +272,51 @@ function GlbMap({ url, onBounds, onColliders }) {
       }
       revolve = { pivot, speed: 0, center: { x: pivot.position.x * MAP_SCALE + MAP_OFFSET[0], z: pivot.position.z * MAP_SCALE + MAP_OFFSET[2] } };
     }
-    doors.current = { groups, revolve };
+    // 여닫이문: 경첩 위치에 축(pivot)을 만들고 문짝·손잡이를 붙여서 돌림
+    const swings = [];
+    const swingParts = {};
+    const swingPanels = [];
+    scene.traverse((o) => {
+      const n = o.name || "";
+      const m = SWING_DOOR.exec(n);
+      if (m) swingPanels.push({ obj: o, id: m[1], hinge: m[2], opensP: m[3] === "p" });
+      const pm = SWING_PART.exec(n);
+      if (pm) (swingParts[pm[1]] ||= []).push(o);
+    });
+    for (const { obj, id, hinge, opensP } of swingPanels) {
+      let pivot = obj.parent;
+      if (!pivot || pivot.name !== `__SwingPivot_${id}`) {
+        const bb = box.setFromObject(obj);
+        const size = bb.getSize(new THREE.Vector3());
+        const alongX = size.x >= size.z;
+        // 블렌더 Y = 게임 -Z 이므로 Z 방향 벽은 min/max, p/n 이 뒤집힘
+        const hingeMax = alongX ? hinge === "max" : hinge === "min";
+        const hingeWorld = new THREE.Vector3(
+          alongX ? (hingeMax ? bb.max.x : bb.min.x) : (bb.min.x + bb.max.x) / 2,
+          0,
+          alongX ? (bb.min.z + bb.max.z) / 2 : (hingeMax ? bb.max.z : bb.min.z)
+        );
+        const parent = obj.parent;
+        pivot = new THREE.Group();
+        pivot.name = `__SwingPivot_${id}`;
+        pivot.position.copy(parent.worldToLocal(hingeWorld.clone()));
+        parent.add(pivot);
+        scene.updateMatrixWorld(true);
+        pivot.attach(obj);
+        (swingParts[id] || []).forEach((p) => pivot.attach(p));
+        const s = hingeMax ? -1 : 1; // 경첩에서 손잡이 쪽 방향
+        const w = alongX ? (opensP ? -1 : 1) : opensP ? 1 : -1; // 열리는 쪽 (게임 좌표, 수직 방향)
+        pivot.userData.swingSign = alongX ? -s * w : s * w;
+        pivot.userData.swingCenter = bb.getCenter(new THREE.Vector3());
+      }
+      const c = pivot.userData.swingCenter;
+      swings.push({
+        pivot, open: 0, sign: pivot.userData.swingSign,
+        center: { x: c.x * MAP_SCALE + MAP_OFFSET[0], z: c.z * MAP_SCALE + MAP_OFFSET[2] },
+      });
+      pivot.rotation.y = 0;
+    }
+    doors.current = { groups, revolve, swings };
   }, [scene]);
   useEffect(() => {
     scene.updateMatrixWorld(true);
