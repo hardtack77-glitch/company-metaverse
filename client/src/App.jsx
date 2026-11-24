@@ -1621,6 +1621,10 @@ export default function App() {
       setTreasures((ts) => ts.map((t) => (t.id === treasureId ? { ...t, foundCount, claimed } : t)));
       if (name) showToast(`📢 ${name}님이 [${itemName}]을(를) 찾았어요!`);
     };
+    const onTreasuresReset = ({ treasures }) => {
+      setTreasures(treasures || []);
+      showToast("🔄 보물찾기가 초기화됐어요! 모든 보물을 다시 찾을 수 있어요.");
+    };
     const onJoinRejected = ({ message }) => {
       setMe(null);
       setLobbyMsg(message);
@@ -1634,6 +1638,7 @@ export default function App() {
     socket.on("playerLeft", onLeft);
     socket.on("chat", onChat);
     socket.on("treasureClaimed", onTreasureClaimed);
+    socket.on("treasuresReset", onTreasuresReset);
     socket.on("joinRejected", onJoinRejected);
     socket.on("onlineCount", setOnlineCount);
     const onDartNews = ({ name, score }) => showToast(`🎯 ${name}님이 다트 ${score}점을 기록했어요!`);
@@ -1677,6 +1682,7 @@ export default function App() {
       socket.off("playerLeft", onLeft);
       socket.off("chat", onChat);
       socket.off("treasureClaimed", onTreasureClaimed);
+      socket.off("treasuresReset", onTreasuresReset);
       socket.off("joinRejected", onJoinRejected);
       socket.off("onlineCount", setOnlineCount);
     };
