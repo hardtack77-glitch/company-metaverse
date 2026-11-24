@@ -5,9 +5,10 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import Shop from "./Shop.jsx";
+import Quest from "./Quest.jsx";
 import NewsTV from "./NewsTV.jsx";
 import LectureScreen from "./LectureScreen.jsx";
-import { shopInfo } from "./socket.js";
+import { questInfo, shopInfo } from "./socket.js";
 import { socket, connectAs, claimTreasure, changeFloor, submitDart, sendMove, rememberPose, signup, login, checkSession, logout, getToken, sendAction } from "./socket.js";
 import { openExternal, shouldAutoResume, clearResume } from "./openLink.js";
 import DartGame from "./DartGame.jsx";
@@ -131,6 +132,7 @@ const BASE_NPCS = [
       "저희 LG유플러스 고객센터는 NCSI(국가고객만족도조사) 2년 연속 1위를 달성한 역량 있는 센터이며,",
       "직원의 만족이 고객의 만족으로 이어진다는 믿음으로 직원들이 즐겁고 편하게 회사를 다닐 수 있도록 최선을 다하는 회사입니다.",
       "편하게 둘러보시고 보물찾기와 미니게임도 즐겨 보세요~ 감사합니다.",
+      "임직원 여러분은 제게 퀘스트를 받아 도전해 보세요! 📜 완료하면 포인트를 드려요.",
     ],
   },
   {
@@ -807,7 +809,7 @@ class CharBoundary extends Component {
   }
 }
 
-function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, model, hideLabel, pose, actorId, equipped, coffee, aura }) {
+function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, model, hideLabel, pose, actorId, equipped, coffee, aura, quest }) {
   const charsOk = useContext(CharsContext);
   const labelScale = useContext(LabelScaleContext);
   const procedural = <ProceduralBody speedRef={speedRef} outfit={outfit || CARDIGAN} actorId={actorId} />;
@@ -829,6 +831,7 @@ function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, mod
         <div style={{ ...styles.labelWrap, transform: "translateY(-50%)" /* 이름표 아래쪽이 머리 위에 오도록 */ }}>
           {isNpc && <div style={styles.npcMark}>💬</div>}
           {aura && <div style={styles.aura}>{aura}</div>}
+          {quest && <div style={styles.questTag}>📜 퀘스트 수행중</div>}
           {bubble && <div style={styles.bubble}>{bubble}</div>}
           <div style={{ ...styles.name, background: isNpc ? "#b45309" : isMe ? "#e6007e" : tagColor || "rgba(0,0,0,.6)" }}>
             {isNpc ? `[NPC] ${name}` : name}
@@ -1291,7 +1294,7 @@ function MyAvatar({ me, inputRef, bubble, myPosRef, frozen, bounds, colliders, c
   return (
     <group ref={ref} position={me.position}>
       {/* 1인칭에서는 내 몸이 카메라를 가리지 않도록 숨김 */}
-      {!CAMERA_MODES[camMode]?.firstPerson && <AvatarBody name={me.guest ? `${me.name} (방문자)` : me.name} bubble={bubble} isMe speedRef={speedRef} model={lookModel(me.look)} outfit={me.look?.outfit} actorId={me.id} equipped={me.equipped} coffee={coffee} aura={aura} />}
+      {!CAMERA_MODES[camMode]?.firstPerson && <AvatarBody name={me.guest ? `${me.name} (방문자)` : me.name} bubble={bubble} isMe speedRef={speedRef} model={lookModel(me.look)} outfit={me.look?.outfit} actorId={me.id} equipped={me.equipped} coffee={coffee} aura={aura} quest={me.quest} />}
     </group>
   );
 }
@@ -1333,6 +1336,7 @@ function OtherAvatar({ player, bubble }) {
         equipped={player.equipped}
         coffee={player.coffee}
         aura={player.aura}
+        quest={player.quest}
       />
     </group>
   );
@@ -1576,6 +1580,8 @@ export default function App() {
   const [recruiter, setRecruiter] = useState(null); // 채용담당자 메뉴 { text }
   const [shopMode, setShopMode] = useState(null); // 🛒 "shop" | 🎒 "bag"
   const [points, setPoints] = useState(null); // 내 포인트 (회원)
+  const [questOpen, setQuestOpen] = useState(false); // 📜 퀘스트 창
+  const [myQuest, setMyQuest] = useState(null); // 진행 중 퀘스트 { id, title, done, total }
   const [myCoffee, setMyCoffee] = useState(false);
   const [myAura, setMyAura] = useState(null);
   const [radarOn, setRadarOn] = useState(false);
@@ -1718,6 +1724,14 @@ export default function App() {
     const onEquip = ({ id, equipped }) => patchPlayer(id, { equipped });
     const onAura = ({ id, aura }) => patchPlayer(id, { aura });
     const onCoffee = ({ id, on }) => patchPlayer(id, { coffee: on });
+    const onPlayerQuest = ({ id, quest }) => patchPlayer(id, { quest });
+    const onQuestUpdate = (r) => {
+      setMyQuest(r.active ? { ...r.active, title: r.list.find((q) => q.id === r.active.id)?.title } : null);
+      if (r.completed) showToast(`🎉 퀘스트 [${r.completed.title}] 완료! +${r.completed.reward}P`);
+      else if (r.active) showToast(`📜 퀘스트 진행 ${r.active.done} / ${r.active.total}`);
+    };
+    socket.on("playerQuest", onPlayerQuest);
+    socket.on("questUpdate", onQuestUpdate);
     socket.on("wallet", onWallet);
     socket.on("playerEquip", onEquip);
     socket.on("playerAura", onAura);
@@ -1727,6 +1741,8 @@ export default function App() {
       socket.off("playerEquip", onEquip);
       socket.off("playerAura", onAura);
       socket.off("playerCoffee", onCoffee);
+      socket.off("playerQuest", onPlayerQuest);
+      socket.off("questUpdate", onQuestUpdate);
       socket.off("action", onRemoteAction);
       socket.off("inboxNew", onInboxNew);
       socket.off("dartNews", onDartNews);
@@ -1747,6 +1763,8 @@ export default function App() {
   // 회원이 입장하면 포인트를 받아 🎒 버튼에 표시
   useEffect(() => {
     if (me?.id && !me.guest) shopInfo().then((r) => r.ok && setPoints(r.wallet.points));
+    if (me?.id && !me.guest)
+      questInfo().then((r) => r.ok && setMyQuest(r.active ? { ...r.active, title: r.list.find((q) => q.id === r.active.id)?.title } : null));
   }, [me?.id]); // eslint-disable-line
 
   /* ── 지금 층에 있는 것들 ── */
@@ -1781,7 +1799,7 @@ export default function App() {
       : nearbyTarget?.type === "dart" && floor === DART_SPOT.floor
       ? { type: "dart", data: {} }
       : null;
-  const modalOpen = !!dialog || elevatorOpen || dartOpen || !!recruiter || !!msgTarget || inboxOpen || photoOpen || !!rpsNpc || !!omokNpc || !!shellNpc || !!reactionNpc || !!empathyNpc || rankOpen || !!baseballNpc || !!memoryNpc || !!shopMode;
+  const modalOpen = !!dialog || elevatorOpen || dartOpen || !!recruiter || !!msgTarget || inboxOpen || photoOpen || !!rpsNpc || !!omokNpc || !!shellNpc || !!reactionNpc || !!empathyNpc || rankOpen || !!baseballNpc || !!memoryNpc || !!shopMode || questOpen;
   const canInteract = nearby?.data && !modalOpen;
 
   /* ── 상호작용 ── */
@@ -2215,6 +2233,11 @@ export default function App() {
       <button style={{ ...styles.topBar, border: 0, fontWeight: 700 }} onClick={showInventory}>
         🎁 보물 {treasures.filter((t) => t.foundByMe).length} / {treasures.length}개
       </button>
+      {myQuest && (
+        <div style={styles.questChip}>
+          📜 {myQuest.title} · {myQuest.done}/{myQuest.total}
+        </div>
+      )}
 
       <button style={styles.camBtn} onClick={toggleCam}>
         🎥 {CAMERA_MODES[CAMERA_ORDER[(CAMERA_ORDER.indexOf(camMode) + 1) % CAMERA_ORDER.length]].label}
@@ -2294,6 +2317,15 @@ export default function App() {
       {!dialog && !recruiter && <ChatLog lines={chatLines} myId={me.id} floor={floor} />}
 
       {msgTarget && <NpcMessage npc={msgTarget} onClose={() => setMsgTarget(null)} />}
+      {questOpen && (
+        <Quest
+          onClose={() => setQuestOpen(false)}
+          onChange={(a) => {
+            setMyQuest(a);
+            setMe((m) => (m ? { ...m, quest: a ? true : null } : m));
+          }}
+        />
+      )}
       {rpsNpc && <RpsGame npc={rpsNpc} onClose={() => setRpsNpc(null)} />}
       {omokNpc && <OmokGame npc={omokNpc} onClose={() => setOmokNpc(null)} />}
       {shellNpc && <ShellGame npc={shellNpc} onClose={() => setShellNpc(null)} />}
@@ -2438,6 +2470,20 @@ export default function App() {
                   🥤 야바위 게임
                 </button>
               )}
+              {dialog.npc.id === "npc_1f_center_head" && (
+                <button
+                  style={{ ...styles.dialogMsgBtn, background: "#d97706" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const npc = dialog.npc;
+                    setDialog(null);
+                    if (me?.guest) openDialog(npc.name, "퀘스트는 회원가입한 임직원만 할 수 있어요. 로그인하고 다시 와 주세요! 🙂");
+                    else setQuestOpen(true);
+                  }}
+                >
+                  📜 퀘스트 받기
+                </button>
+              )}
               {dialog.npc.game === "omok" && (
                 <button
                   style={{ ...styles.dialogMsgBtn, background: "#111827" }}
@@ -2547,6 +2593,8 @@ const styles = {
   actionBtn: { position: "absolute", right: 24, bottom: "calc(290px + env(safe-area-inset-bottom))", width: 100, height: 100, borderRadius: "50%", border: "3px solid #fff", color: "#fff", fontSize: 15, fontWeight: 800, lineHeight: 1.35, whiteSpace: "pre-line", boxShadow: "0 4px 14px rgba(0,0,0,.35)", touchAction: "manipulation", zIndex: 12 },
   toast: { position: "absolute", top: "calc(56px + env(safe-area-inset-top))", left: "50%", transform: "translateX(-50%)", maxWidth: "88%", background: "rgba(17,24,39,.9)", color: "#fff", padding: "10px 16px", borderRadius: 12, fontSize: 14, textAlign: "center", zIndex: 20 },
   npcMark: { fontSize: 18, lineHeight: 1 },
+  questTag: { color: "#78350f", background: "#fcd34d", fontSize: 11, fontWeight: 800, padding: "1px 8px", borderRadius: 999, border: "1px solid #f59e0b" },
+  questChip: { position: "absolute", top: 52, left: 12, zIndex: 6, maxWidth: "70vw", border: 0, borderRadius: 999, padding: "6px 12px", background: "rgba(120,53,15,.88)", color: "#fde68a", fontSize: 12, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
   dialog: { position: "absolute", left: 12, right: 12, bottom: "calc(70px + env(safe-area-inset-bottom))", maxWidth: 520, margin: "0 auto", background: "rgba(17,24,39,.95)", color: "#fff", padding: "16px 18px 12px", borderRadius: 14, border: "2px solid #fbbf24", zIndex: 30 },
   dialogTitle: { color: "#fbbf24", fontWeight: 800, fontSize: 14, marginBottom: 6 },
   dialogText: { margin: "0 0 8px", fontSize: 16, lineHeight: 1.55, whiteSpace: "pre-line" },

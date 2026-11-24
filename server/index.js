@@ -13,7 +13,8 @@ import { Server } from "socket.io";
 import crypto from "crypto";
 import { N as OMOK_N, emptyBoard, isWin, aiMove } from "./omok.js";
 import { EMPATHY_QUESTIONS, EMPATHY_POINTS, EMPATHY_COUNT } from "./empathy.js";
-import { ITEM_CATALOG, SLOTS, drawDart, TREASURE_POINTS, GAME_DAILY_CAP, GAME_POINTS, GAME_KO, newWallet } from "./shop.js";
+import { QUESTS, QUEST_BY_ID, QUEST_GIVER, questProgress, questApply, questComplete } from "./quest.js";
+import { ITEM_CATALOG, SLOTS, drawDart, TREASURE_POINTS, TREASURE_ALL_BONUS, GAME_WIN, GAME_WIN_RULE, gameReward, GAME_KO, newWallet } from "./shop.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // 배포 시: client 를 빌드한 결과물(client/dist)을 이 서버가 같이 보내 줌 → 주소 하나로 접속
@@ -644,7 +645,8 @@ function weeklyChamps() {
 /* ───────── 🛒 포인트 지갑 (회원 전용) ─────────
    - 사번별 포인트·가방·장착 상태 → Firestore "wallets" 에 저장 (서버가 다시 켜져도 유지)
    - 처음 쓰는 회원은 500P + 커피 1잔으로 시작
-   - 보물 1개 300P, 미니게임은 결과에 따라 0~50P (하루 최대 300P)                         */
+   - 보물 1개 50P, 이번 주 10개 다 찾으면 +200P
+   - 미니게임은 NPC 에게 이기면 게임마다 하루 1번 50P (허유경 센터장 오목은 100P), 자정에 초기화 */
 const wallets = new Map(); // 사번 → { empNo, points, bag, equipped, day, dayGame }
 const kstDay = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
 function getWallet(empNo) {
@@ -661,7 +663,23 @@ function saveWallet(w) {
   if (!db) return;
   db.collection("wallets").doc(w.empNo).set(w).catch((e) => console.error("지갑 저장 실패:", e.message));
 }
-const walletView = (w) => ({ points: w.points, bag: w.bag, equipped: w.equipped, gameLeft: Math.max(0, GAME_DAILY_CAP - (w.day === kstDay() ? w.dayGame : 0)) });
+function walletDay(w) {
+  const today = kstDay();
+  if (w.day !== today) {
+    w.day = today;
+    w.dayGame = 0;
+    w.dayWins = {};
+  }
+  w.dayWins ||= {};
+  return w;
+}
+// 오늘 아직 이기지 않은 게임의 보상 합계 / 게임별 오늘 보상 받았는지
+const gamesLeft = (w) => Object.keys(GAME_WIN).filter((g) => !walletDay(w).dayWins[g]);
+const walletView = (w) => ({
+  points: w.points, bag: w.bag, equipped: w.equipped,
+  gameLeft: gamesLeft(w).reduce((s, g) => s + gameReward(g), 0),
+  gameToday: Object.keys(GAME_WIN).map((g) => ({ game: g, name: GAME_KO[g], reward: gameReward(g), rule: GAME_WIN_RULE[g], done: !!w.dayWins[g] })),
+});
 function addPoints(p, amount, reason) {
   const w = getWallet(p.empNo);
   if (!w || amount <= 0) return 0;
@@ -670,24 +688,59 @@ function addPoints(p, amount, reason) {
   io.to(p.id).emit("wallet", { ...walletView(w), gained: amount, reason });
   return amount;
 }
-// 미니게임 보상 (하루 상한 적용)
+// 미니게임 보상: NPC 에게 이기면 게임마다 하루 1번 (한국시간 자정에 초기화)
 function awardGame(p, game, g) {
   gameNews(p, game, g);
   if (!p?.empNo) return 0;
-  const w = getWallet(p.empNo);
-  const today = kstDay();
-  if (w.day !== today) {
-    w.day = today;
-    w.dayGame = 0;
-  }
-  const want = Math.max(0, Math.round(GAME_POINTS[game]?.(g) || 0));
-  const got = Math.min(want, Math.max(0, GAME_DAILY_CAP - w.dayGame));
-  w.dayGame += got;
-  if (!got) {
-    if (want) io.to(p.id).emit("wallet", { ...walletView(w), gained: 0, reason: `오늘 미니게임 포인트를 다 받았어요 (하루 ${GAME_DAILY_CAP}P)` });
+  const w = walletDay(getWallet(p.empNo));
+  const label = GAME_KO[game] || "미니게임";
+  if (!GAME_WIN[game]?.(g)) return 0; // 이기지 못하면 포인트 없음
+  questEvent(p, { kind: "win", game });
+  if (w.dayWins[game]) {
+    io.to(p.id).emit("wallet", { ...walletView(w), gained: 0, reason: `${label} 승리 보상은 오늘 이미 받았어요 (내일 자정에 다시 받을 수 있어요)` });
     return 0;
   }
-  return addPoints(p, got, `${GAME_KO[game] || "미니게임"} 보상`);
+  w.dayWins[game] = true;
+  const amt = gameReward(game);
+  w.dayGame = (w.dayGame || 0) + amt;
+  return addPoints(p, amt, `${label} 승리 보상`);
+}
+
+/* ───────── 📜 퀘스트 (1층 김지연 센터장) ─────────
+   - 지갑(w)에 진행 중 퀘스트 w.quest = { id, startedAt, progress[] }, 완료 기록 w.questsDone = { id: 완료일시 }
+   - 한 번에 1개만 진행 · 퀘스트마다 1번만 완료 · 진행 중이면 머리 위에 "퀘스트 수행중" */
+function questView(w) {
+  const done = w.questsDone || {};
+  const active = w.quest && QUEST_BY_ID[w.quest.id] ? w.quest : null;
+  return {
+    active: active ? { id: active.id, startedAt: active.startedAt, ...questProgress(QUEST_BY_ID[active.id], active.progress) } : null,
+    list: QUESTS.map((q) => ({ id: q.id, title: q.title, goal: q.goal, reward: q.reward, ...questProgress(q, active?.id === q.id ? active.progress : []), completedAt: done[q.id] || null })),
+  };
+}
+const questTitle = (w) => (w.quest && QUEST_BY_ID[w.quest.id] ? QUEST_BY_ID[w.quest.id].title : null);
+function setPlayerQuest(p, title) {
+  p.quest = title || null;
+  io.to(p.floor).emit("playerQuest", { id: p.id, quest: p.quest });
+}
+// 게임·메시지·다트 결과가 들어오면 진행 중 퀘스트에 반영
+function questEvent(p, ev) {
+  if (!p?.empNo) return;
+  const w = getWallet(p.empNo);
+  if (!w?.quest || !questApply(w.quest, ev)) return;
+  const q = QUEST_BY_ID[w.quest.id];
+  if (questComplete(w.quest)) {
+    (w.questsDone ||= {})[q.id] = new Date().toISOString();
+    w.quest = null;
+    saveWallet(w);
+    setPlayerQuest(p, null);
+    addPoints(p, q.reward, `📜 퀘스트 [${q.title}] 완료`);
+    pushNews("📜", `${newsName(p)}님이 퀘스트 [${q.title}]을(를) 완료했어요!`);
+    io.to(p.id).emit("questUpdate", { ...questView(w), completed: { title: q.title, reward: q.reward } });
+    console.log(`[퀘스트] ${p.name}(${p.empNo}) 완료 → ${q.title} +${q.reward}P`);
+  } else {
+    saveWallet(w);
+    io.to(p.id).emit("questUpdate", questView(w));
+  }
 }
 
 /* ───────── 사원 명단 (회원가입 확인용) ─────────
@@ -918,6 +971,7 @@ io.on("connection", (socket) => {
       player.rotationY = Number.isFinite(resume.rotationY) ? resume.rotationY : 0;
     }
     if (member) player.equipped = { ...getWallet(member.empNo).equipped }; // 장착 아이템은 다른 사람에게도 보임
+    if (member) player.quest = questTitle(getWallet(member.empNo)); // 진행 중 퀘스트 → 머리 위 표시
     players.set(socket.id, player);
     socket.join(player.floor);
     if (member && JSON.stringify(member.look) !== JSON.stringify(player.look)) {
@@ -994,6 +1048,7 @@ io.on("connection", (socket) => {
     const mine = dartBest.get(p.key);
     reply({ ok: true, isBest, best: mine.score, rank: all.indexOf(mine) + 1, top: all.slice(0, 10) });
     socket.to(p.floor).emit("dartNews", { name: p.name, score: s });
+    questEvent(p, { kind: "dart", score: s });
     console.log(`[다트] ${p.name} ${s}점${isBest ? " (최고 기록)" : ""}`);
   });
 
@@ -1018,6 +1073,7 @@ io.on("connection", (socket) => {
     if (db) db.collection("npcMessages").doc(m.id).set(m).catch((e) => console.error("메시지 저장 실패:", e.message));
     console.log(`[메시지] ${m.from} → ${m.npcName}${m.isPublic ? "" : " (비공개)"}: ${m.text}`);
     reply({ ok: true, messages: publicMessages(id) });
+    questEvent(p, { kind: "message", npcId: id });
   });
   // 내 메시지함 열기 → 목록 응답, 답장은 읽음 처리
   socket.on("myMessages", (_, ack) => {
@@ -1376,6 +1432,41 @@ io.on("connection", (socket) => {
   socket.on("newsInfo", (_, ack) => {
     if (typeof ack === "function") ack({ ok: true, feed: newsFeed, champs: weeklyChamps() });
   });
+  socket.on("questInfo", (_, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = member(reply);
+    if (!p) return;
+    reply({ ok: true, ...questView(getWallet(p.empNo)) });
+  });
+  socket.on("questStart", (id, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = member(reply);
+    if (!p) return;
+    const q = QUEST_BY_ID[id];
+    const w = getWallet(p.empNo);
+    if (!q) return reply({ ok: false, message: "없는 퀘스트예요." });
+    if (p.floor !== QUEST_GIVER.floor || dist2D(p.position, QUEST_GIVER.position) > QUEST_GIVER.range)
+      return reply({ ok: false, message: "1층 김지연 센터장님 앞에서 받을 수 있어요." });
+    if (w.questsDone?.[q.id]) return reply({ ok: false, message: "이미 완료한 퀘스트예요." });
+    if (w.quest && QUEST_BY_ID[w.quest.id]) return reply({ ok: false, message: `지금 [${QUEST_BY_ID[w.quest.id].title}] 퀘스트를 하고 있어요. 한 번에 1개만 할 수 있어요.` });
+    w.quest = { id: q.id, startedAt: new Date().toISOString(), progress: [] };
+    saveWallet(w);
+    setPlayerQuest(p, q.title);
+    console.log(`[퀘스트] ${p.name}(${p.empNo}) 시작 → ${q.title}`);
+    reply({ ok: true, message: `[${q.title}] 퀘스트를 시작했어요! ${q.goal}`, ...questView(w) });
+  });
+  socket.on("questCancel", (_, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    const p = member(reply);
+    if (!p) return;
+    const w = getWallet(p.empNo);
+    if (!w.quest) return reply({ ok: false, message: "진행 중인 퀘스트가 없어요." });
+    const t = questTitle(w);
+    w.quest = null;
+    saveWallet(w);
+    setPlayerQuest(p, null);
+    reply({ ok: true, message: `[${t}] 퀘스트를 그만뒀어요. 다시 받으면 처음부터 시작해요.`, ...questView(w) });
+  });
   socket.on("shopInfo", (_, ack) => {
     const reply = typeof ack === "function" ? ack : () => {};
     const p = member(reply);
@@ -1501,14 +1592,18 @@ io.on("connection", (socket) => {
 
       await saveClaim(treasureId, player);
       set.add(player.key);
-      const bonus = player.empNo ? addPoints(player, TREASURE_POINTS, `[${item.name}] 보물 발견`) : 0;
+      let bonus = player.empNo ? addPoints(player, TREASURE_POINTS, `[${item.name}] 보물 발견`) : 0;
+      const myCount = Object.values(foundBy).filter((s) => s.has(player.key)).length;
+      const allFound = myCount === Object.keys(treasures).length;
+      if (allFound && player.empNo) bonus += addPoints(player, TREASURE_ALL_BONUS, "이번 주 보물 10개 모두 발견 보너스");
+      if (allFound) pushNews("🏆", `${newsName(player)}님이 이번 주 보물 ${myCount}개를 모두 찾았어요!`);
       pushNews("🎁", `${newsName(player)}님이 ${item.floor} [${item.name}] 보물을 찾았어요!`);
 
       reply({
         success: true,
         treasureId,
         itemName: item.name,
-        message: `축하합니다! [${item.name}]을(를) 찾았습니다!${bonus ? ` (+${bonus}P)` : ""}`,
+        message: `축하합니다! [${item.name}]을(를) 찾았습니다!${bonus ? ` (+${bonus}P)` : ""}${allFound ? `\n🏆 이번 주 보물을 모두 찾았어요!${player.empNo ? ` 보너스 +${TREASURE_ALL_BONUS}P` : ""}` : ""}`,
       });
       // 획득 알림은 전 층에 공지
       io.emit("treasureClaimed", {

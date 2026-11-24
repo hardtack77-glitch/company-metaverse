@@ -23,22 +23,29 @@ export function drawDart(randomInt) {
 }
 
 export const START_POINTS = 500;
-export const TREASURE_POINTS = 300;
-export const GAME_DAILY_CAP = 300; // 미니게임으로 하루에 벌 수 있는 최대 포인트
+export const TREASURE_POINTS = 50; // 보물 1개
+export const TREASURE_ALL_BONUS = 200; // 이번 주 보물 10개를 다 찾으면 추가
 
-// 미니게임 결과 → 포인트
-export const GAME_POINTS = {
-  rps: (g) => ({ win: 20, draw: 5, lose: 0 })[g.result] ?? 0,
-  omok: (g) => (g.resigned ? 0 : ({ win: 50, draw: 20, lose: 5 })[g.result] ?? 0),
-  shell: (g) => g.score * 10 + (g.score === 3 ? 10 : 0),
-  reaction: () => 20,
-  empathy: (g) => Math.round(g.score / 4),
-  baseball: (g) => (g.success ? Math.max(20, 50 - g.tries * 3) : 5),
-  memory: () => 30,
+// 미니게임: NPC 에게 "이기면" 게임마다 하루 1번 보상 (자정에 초기화)
+export const GAME_REWARD = { omok: 100 }; // 허유경 센터장 오목은 어려워서 100P
+export const GAME_REWARD_DEFAULT = 50; // 나머지 실장 게임은 50P
+export const GAME_WIN = {
+  rps: (g) => g.result === "win",
+  omok: (g) => g.result === "win" && !g.resigned,
+  shell: (g) => g.score >= 2, // 3판 중 2판 이상 맞히기
+  reaction: (g) => g.avg <= 600, // 평균 반응 0.6초 이하
+  empathy: (g) => g.score >= 70, // 100점 만점에 70점 이상
+  baseball: (g) => !!g.success,
+  memory: () => true, // 카드를 다 맞추면 승리
 };
+export const GAME_WIN_RULE = {
+  rps: "가위바위보에서 이기기", omok: "오목에서 이기기", shell: "3판 중 2판 이상 맞히기", reaction: "평균 0.6초 이내로 받기",
+  empathy: "70점 이상 받기", baseball: "정답 맞히기", memory: "카드 짝 다 맞추기",
+};
+export const gameReward = (game) => GAME_REWARD[game] ?? GAME_REWARD_DEFAULT;
 export const GAME_KO = { rps: "가위바위보", omok: "오목", shell: "야바위", reaction: "콜 받기", empathy: "공감 응대", baseball: "숫자야구", memory: "카드 짝맞추기" };
 
 export const newWallet = (empNo) => ({
   empNo, points: START_POINTS, bag: { item_coffee: 1 }, equipped: { headset: null, pet: null, hand: null, shoulder: null },
-  day: "", dayGame: 0, createdAt: new Date().toISOString(),
+  day: "", dayGame: 0, dayWins: {}, createdAt: new Date().toISOString(),
 });

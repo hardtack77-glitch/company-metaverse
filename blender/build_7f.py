@@ -86,6 +86,7 @@ M = {
     "wall_dark": mat("Wall_Charcoal", hexrgb("3b3d42"), 0.7),
     "glass": mat("Glass_Clear", hexrgb("bcd8e0"), 0.05, 0.0, alpha=0.28),
     "frosted": mat("Glass_Frosted", hexrgb("dfe9ea"), 0.4, 0.0, alpha=0.6),
+    "film_base": mat("Lounge_Film_Base", hexrgb("dee2e4"), 0.5),
     "frame_black": mat("Frame_Black", hexrgb("1d1d1f"), 0.4, 0.4),
     "steel": mat("Steel_Brushed", hexrgb("b9bcc0"), 0.3, 0.9),
     "bronze": mat("Elevator_Bronze", hexrgb("5a3a22"), 0.35, 0.6),
@@ -543,6 +544,8 @@ box("Main_LGU_Door_L", -0.6, -8.03, 0, 0.3, -7.97, 2.5, M["glass"])
 box("Main_LGU_Door_R", 0.3, -8.03, 0, 1.2, -7.97, 2.5, M["glass"])
 T("Main_Door_Logo_L", "LG U+", -0.15, -8.06, 1.45, 0.45, 0.12, M["text_red"], facing="S")
 T("Main_Door_Logo_R", "LG U+", 0.75, -8.06, 1.45, 0.45, 0.12, M["text_red"], facing="S")
+T("Main_Door_Logo_L_N", "LG U+", -0.15, -7.94, 1.45, 0.45, 0.12, M["text_red"], facing="N")
+T("Main_Door_Logo_R_N", "LG U+", 0.75, -7.94, 1.45, 0.45, 0.12, M["text_red"], facing="N")
 box("Main_Door_Yellow_Post", -1.1, -8.12, 0, -0.95, -8.06, 2.5, M["phone_yellow"])
 for i in range(14):  # 나무 루버 천장 (게임에서는 숨김)
     y = -7.6 + i * 1.6
@@ -559,9 +562,16 @@ T("RestBar_Sign", "REST BAR", 1.55, -2.35, 2.65, 1.0, 0.2, M["text_dark"], facin
 T("Window_Gamdong_Banner", f"감동을 전하는 {FLOOR_NO}층", 1.65, -5.1, 2.0, 2.2, 0.22, M["text_red"], facing="W", fallback=f"WOW {FLOOR_NO}F")
 box("Corr_East_Wood_Mid", 1.62, -1.7, 0, 1.78, -1.3, 3.2, M["wood_panel"])
 box("Corr_East_Wood_Panel", 1.62, -1.3, 0, 1.78, 0.5, 3.2, M["wood_panel"])
-box("Lounge_Frosted_Door", 1.68, 0.5, 0, 1.72, 1.5, 2.4, M["frosted"])
+box("Lounge_Glass_Door", 1.685, 0.52, 0, 1.715, 1.48, 2.4, M["glass"])  # 휴게실 투명 유리문 (통과 가능)
+for nm, ya, yb in [("S", 0.5, 0.56), ("N", 1.44, 1.5)]:  # 문틀 (검정) → 시트지 벽 사이에서 문이 잘 보이게
+    box(f"Lounge_Door_Frame_{nm}", 1.64, ya, 0, 1.76, yb, 2.4, M["frame_black"])
+box("Lounge_Door_Frame_Top", 1.64, 0.5, 2.37, 1.76, 1.5, 2.43, M["frame_black"])
+for side, dx in (("W", -0.025), ("E", 0.025)):  # 유리문에 LG U+ 휴게실 (복도·안쪽 양면)
+    T(f"Lounge_Door_LGU_{side}", "LG U+", 1.7 + dx, 1.0, 1.55, 0.6, 0.15, M["magenta"], facing=side, fallback="LG U+")
+    T(f"Lounge_Door_Text_{side}", "휴게실", 1.7 + dx, 1.0, 1.33, 0.55, 0.15, M["text_dark"], facing=side, fallback="LOUNGE")
 box("Lounge_Door_Head", 1.62, 0.5, 2.4, 1.78, 1.5, 3.2, M["wood_panel"])
-box("Geometric_Glass_Wall", 1.67, 1.5, 0, 1.73, 8.4, 2.9, M["frosted"])
+box("Lounge_Glass_Wall", 1.68, 1.5, 0, 1.72, 8.4, 2.9, M["glass"])  # 투명 유리벽 (가운데 띠만 시트지)
+box("Lounge_Film_Core", 1.69, 1.5, 0.35, 1.71, 8.4, 2.1, M["film_base"])  # 시트지 띠 (안 비침)
 for i, y in enumerate([2.9, 4.6, 6.3, 8.0]):
     box(f"Geometric_Glass_Mullion_{i + 1}", 1.64, y - 0.03, 0, 1.76, y + 0.03, 2.9, M["frame_black"])
 box("Corr_East_Wood_N1", 1.62, 8.4, 0, 1.78, 9.3, 3.2, M["wood_panel"])
@@ -857,6 +867,8 @@ for i, x in enumerate([-12.2, -5.3]):
 BANNER_CANDIDATES = [
     r"C:\Users\User\company-metaverse\blender\tex\ksqi_banner.jpg",
     os.path.join(os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else "", "tex", "ksqi_banner.jpg"),
+    os.path.join(os.getcwd(), "blender", "tex", "ksqi_banner.jpg"),
+    os.path.join(os.getcwd(), "tex", "ksqi_banner.jpg"),
 ]
 
 
@@ -888,6 +900,44 @@ def image_banner(name, path, cx, y, z1, w, h):
     return obj
 
 
+
+
+def film_plane(name, path, x, y1, y2, z1, z2, facing, tile=None):
+    """X=x 위치의 세로 면(+X 또는 -X 를 바라봄)에 반복 무늬 이미지"""
+    mesh = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    vs = [bm.verts.new(v) for v in [(x, y1, z1), (x, y2, z1), (x, y2, z2), (x, y1, z2)]]
+    face = bm.faces.new(vs)
+    uv = bm.loops.layers.uv.new()
+    u, v = ((y2 - y1) / tile, (z2 - z1) / tile) if tile else (1.0, 1.0)
+    for loop, co in zip(face.loops, [(0, 0), (u, 0), (u, v), (0, v)]):
+        loop[uv].uv = co
+    bm.normal_update()
+    if (face.normal.x > 0) != (facing == "E"):
+        face.normal_flip()
+    bm.to_mesh(mesh)
+    bm.free()
+    m = bpy.data.materials.get("Lounge_Film_Pattern")
+    if not m:
+        m = bpy.data.materials.new("Lounge_Film_Pattern")
+        m.use_nodes = True
+        nt = m.node_tree
+        bsdf = nt.nodes.get("Principled BSDF")
+        tex = nt.nodes.new("ShaderNodeTexImage")
+        tex.image = bpy.data.images.load(path)
+        nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+        bsdf.inputs["Roughness"].default_value = 0.6
+    mesh.materials.append(m)
+    obj = bpy.data.objects.new(name, mesh)
+    col.objects.link(obj)
+    return obj
+
+
+FILM_PATH = next((p for p in [c.replace("ksqi_banner.jpg", "lounge_film.png") for c in BANNER_CANDIDATES if c]
+                  if os.path.isfile(p)), None)
+if FILM_PATH:  # 휴게실 복도 벽 시트지 무늬 (복도 쪽 · 휴게실 안쪽)
+    film_plane("Lounge_Film_Pattern_W", FILM_PATH, 1.675, 1.5, 8.4, 0.35, 2.1, "W")
+    film_plane("Lounge_Film_Pattern_E", FILM_PATH, 1.725, 1.5, 8.4, 0.35, 2.1, "E")
 BANNER_PATH = next((p for p in BANNER_CANDIDATES if p and os.path.isfile(p)), None)
 if BANNER_PATH:
     box("North_KSQI_Banner_Bar", -12.1, 15.62, 3.0, -5.9, 15.68, 3.04, M["frame_black"])  # 걸이 봉
@@ -918,8 +968,7 @@ for k, yy in enumerate((-7.25, -6.6, -5.95)):  # 나무 패널 줄눈
 box("Entrance_Wood_Seam_H", EW, MY0, 2.4, EW + 0.006, MY1, 2.41, M["wood_dark"])
 tv("Clova_TV", EW, -6.6, 1.35, 1.2, 0.7, "E")
 cbox("Clova_TV_Screen_White", EW + 0.075, -6.6, 1.39, 0.01, 1.1, 0.62, M["screen_proj"])
-T("Clova_TV_Logo", "LG U+", EW + 0.085, -6.78, 1.7, 0.26, 0.07, M["magenta"], facing="E")
-T("Clova_TV_Text", "NAVER Clova", EW + 0.085, -6.42, 1.7, 0.3, 0.06, M["text_dark"], facing="E")
+# (화면 글씨는 게임에서 실시간 "센터 소식" 화면으로 띄움 — NewsTV.jsx)
 SX = EW + 0.18  # 선반 (검은 프레임 + 나무 판)
 for k, yy in enumerate((-7.2, -6.6, -6.0)):
     for j, xx in enumerate((SX - 0.12, SX + 0.12)):
@@ -994,6 +1043,75 @@ box("Ceiling_RestBar", 1.7, -7.5, 3.2, 6.7, 8.4, 3.25, M["white"])
 #  마무리: 내보내기
 # =====================================================================
 bpy.context.view_layer.update()
+
+
+# ---------------------------------------------------------------------
+#  계단실 (비상구 문 안쪽): 문 바로 안쪽 계단참 + 오르는 계단 · 내려가는 계단 두 줄 + 가운데 벽
+#  (x0, y0)~(x1, y1) = 계단실 범위, land = 계단참이 있는 쪽(N/S/E/W), walls = 새로 세울 벽(엘리베이터 홀 쪽 벽은 이미 있음)
+#  게임에서는 계단참의 초록 원 위에 서면 '층간 이동' 버튼이 뜸 (서버 STAIRS)
+# ---------------------------------------------------------------------
+def stair_room(pre, x0, y0, x1, y1, land, floor_label, walls, LAND=1.4):
+    if "N" in walls:
+        wall(f"{pre}_North_Wall", x0, y1, x1, y1, M["panel_white"])
+    if "S" in walls:
+        wall(f"{pre}_South_Wall", x0, y0, x1, y0, M["panel_white"])
+    if "W" in walls:
+        wall(f"{pre}_West_Wall", x0, y0, x0, y1, M["panel_white"])
+    if "E" in walls:
+        wall(f"{pre}_East_Wall", x1, y0, x1, y1, M["panel_white"])
+    horiz = land in ("N", "S")  # 계단이 남북으로 놓임
+    if land == "N":
+        lr, a0, a1 = (x0, y1 - LAND, x1, y1), y1 - LAND, y0
+    elif land == "S":
+        lr, a0, a1 = (x0, y0, x1, y0 + LAND), y0 + LAND, y1
+    elif land == "W":
+        lr, a0, a1 = (x0, y0, x0 + LAND, y1), x0 + LAND, x1
+    else:
+        lr, a0, a1 = (x1 - LAND, y0, x1, y1), x1 - LAND, x0
+    box(f"{pre}_Landing_Floor", lr[0], lr[1], -0.02, lr[2], lr[3], 0.0, M["steel"])
+    c0, c1 = (x0, x1) if horiz else (y0, y1)  # 계단 폭 방향
+    cm = (c0 + c1) / 2
+    lanes = (("Up", c0 + 0.05, cm - 0.08), ("Down", cm + 0.08, c1 - 0.05))
+
+    def R(name, along1, along2, cross1, cross2, z1, z2, mat):
+        a_lo, a_hi = min(along1, along2), max(along1, along2)
+        if horiz:
+            return box(name, cross1, a_lo, z1, cross2, a_hi, z2, mat)
+        return box(name, a_lo, cross1, z1, a_hi, cross2, z2, mat)
+
+    n = 10
+    step = (a1 - a0) / n
+    for lane, q0, q1 in lanes:
+        for k in range(n):
+            s1, s2 = a0 + k * step, a0 + (k + 1) * step
+            m = M["steel"] if k % 2 else M["charcoal"]
+            if lane == "Up":
+                R(f"{pre}_Up_Step_{k + 1}", s1, s2, q0, q1, 0, 0.17 * (k + 1), m)
+            else:
+                R(f"{pre}_Down_Step_{k + 1}", s1, s2, q0, q1, -1.9, -0.17 * (k + 1), m)
+    R(f"{pre}_Down_Pit_Floor", a0, a1, cm + 0.08, c1 - 0.05, -2.0, -1.9, M["charcoal"])
+    R(f"{pre}_Center_Wall", a0, a1, cm - 0.08, cm + 0.08, 0, 1.1, M["panel_white"])
+    R(f"{pre}_Down_Rail", a0 - 0.04, a0 + 0.04, cm + 0.08, c1 - 0.05, 0, 1.0, M["steel"])
+    R(f"{pre}_Down_Rail_Top", a0 - 0.06, a0 + 0.06, cm + 0.08, c1 - 0.05, 1.0, 1.06, M["black"])
+    # 초록 안내선 (계단참 가운데)
+    lx, ly = (lr[0] + lr[2]) / 2, (lr[1] + lr[3]) / 2
+    if horiz:
+        box(f"{pre}_Glow_Line", lx - 0.6, ly - 0.05, 0, lx + 0.6, ly + 0.05, 0.01, M["tape_green"])
+    else:
+        box(f"{pre}_Glow_Line", lx - 0.05, ly - 0.6, 0, lx + 0.05, ly + 0.6, 0.01, M["tape_green"])
+    # 계단 끝 벽: 층 표시 + 위/아래 안내 (계단참 쪽을 바라봄)
+    face = {"N": "N", "S": "S", "W": "W", "E": "E"}[land]
+    ea = a1 + (0.03 if a1 > a0 else -0.03) * -1
+    up_c, dn_c = (c0 + cm) / 2, (cm + c1) / 2
+    for nm, cc, txt, w in (("Floor_Number", cm, floor_label, 0.7), ("Up_Text", up_c, "▲ 위층", 0.6), ("Down_Text", dn_c, "▼ 아래층", 0.7)):
+        z = 2.25 if nm == "Floor_Number" else 1.75
+        h = 0.35 if nm == "Floor_Number" else 0.16
+        tx, ty = (cc, ea) if horiz else (ea, cc)
+        T(f"{pre}_{nm}", txt, tx, ty, z, w, h, M["text_dark"], face, fallback=txt)
+
+
+stair_room(f"Stair_{FLOOR_NO}F", -0.8, -16.3, 2.4, -13.5, "W", f"{FLOOR_NO}F", walls=("S", "W", "E"))  # 엘리베이터 홀 남쪽 벽 비상구 문 안쪽
+
 print(f"[{FLOOR_NO}F] 오브젝트 {len(col.objects)}개 생성 완료")
 if EXPORT_PATH:
     export_dir = os.path.dirname(EXPORT_PATH)
