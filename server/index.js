@@ -1089,6 +1089,7 @@ io.on("connection", (socket) => {
     const reply = typeof ack === "function" ? ack : () => {};
     const p = players.get(socket.id);
     if (!p) return reply({ ok: false, message: "먼저 입장해 주세요." });
+    if (p.guest) return reply({ ok: false, message: "메시지 남기기는 회원가입한 임직원만 할 수 있어요." });
     const id = clean(npcId, 64);
     const body = clean(text, MSG_MAX_LEN);
     if (!id || !body) return reply({ ok: false, message: "메시지를 입력해 주세요." });
@@ -1449,7 +1450,7 @@ io.on("connection", (socket) => {
   socket.on("chat", (text) => {
     const p = players.get(socket.id);
     const msg = clean(text, 80);
-    if (!p || !msg) return;
+    if (!p || !msg || p.guest) return; // 방문자는 채팅 불가
     const line = { id: socket.id, name: p.guest ? `${p.name}(방문자)` : p.name, text: msg, at: Date.now() };
     const log = floorChat.get(p.floor) || [];
     log.push(line);
