@@ -184,5 +184,10 @@ export const buyItem = (id) => request("buyItem", id, SHOP_FAIL);
 export const sellItem = (id) => request("sellItem", id, SHOP_FAIL);
 export const useItem = (id) => request("useItem", id, SHOP_FAIL);
 
+// 📜 퀘스트 (1층 김지연 센터장)
+export const questInfo = () => request("questInfo", null, SHOP_FAIL);
+export const questStart = (id) => request("questStart", id, SHOP_FAIL);
+export const questCancel = () => request("questCancel", null, SHOP_FAIL);
+
 // 📺 1층 TV 센터 소식
 export const newsInfo = () => request("newsInfo", null, { ok: false, feed: [], champs: [] });

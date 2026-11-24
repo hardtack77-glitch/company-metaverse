@@ -53,7 +53,7 @@ export default function Shop({ mode = "shop", onClose, onWallet, onUsed, canUse 
         </div>
         <div style={S.bar}>
           <span>💰 보유 {wallet ? wallet.points.toLocaleString() : "-"}P</span>
-          <span>🎮 오늘 미니게임으로 더 받을 수 있는 포인트 {wallet ? wallet.gameLeft : "-"}P</span>
+          <span>🎮 오늘 게임 승리로 더 받을 수 있는 포인트 {wallet ? wallet.gameLeft : "-"}P</span>
         </div>
         <div style={S.tabs}>
           {(mode === "shop" ? [["buy", "사기"], ["sell", "팔기"]] : [["bag", "사용·장착"]]).map(([k, label]) => (
@@ -100,7 +100,7 @@ export default function Shop({ mode = "shop", onClose, onWallet, onUsed, canUse 
         </div>
         {msg && <p style={S.msg}>{msg}</p>}
         <p style={S.note}>
-          포인트 얻는 법: 보물 찾기 1개 300P · 미니게임 결과에 따라 5~50P (하루 최대 300P)
+          포인트 얻는 법: 보물 1개 50P · 이번 주 10개 모두 찾으면 +200P (매주 일요일 낮 12시 초기화) · 실장님들과 게임에서 이기면 게임마다 하루 1번 50P · 허유경 센터장님과 오목에서 이기면 하루 1번 100P (매일 자정 초기화)
           {mode === "shop" ? " · 산 아이템은 화면 오른쪽 위 🎒 가방에서 써요." : " · 사고팔기는 각 층 채용담당자에게서 해요."}
         </p>
       </div>
