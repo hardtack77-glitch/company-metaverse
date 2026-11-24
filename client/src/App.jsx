@@ -683,6 +683,31 @@ function Treasure({ t }) {
   );
 }
 
+// 👑 개발자 NPC: 장착 아이템 전부 + 커피 + 민트빛 파동 + 상쾌함 충전 + 보물상자 같은 황금빛
+const DEV_LOOK = {
+  equipped: { headset: "equip_gold_hs", pet: "equip_dino_pet", hand: "equip_mini_fan", shoulder: "equip_gold_bird" },
+  coffee: true,
+  wave: true,
+  aura: "✨ 상쾌함 충전!",
+};
+function GoldenGlow() {
+  const halo = useRef();
+  useFrame((state) => {
+    if (!halo.current) return;
+    const k = 1 + Math.sin(state.clock.elapsedTime * 2) * 0.08;
+    halo.current.scale.set(k, k, k);
+  });
+  return (
+    <group>
+      <pointLight position-y={1.0} color="#ffe08a" intensity={1.6} distance={3} />
+      <mesh ref={halo} position-y={0.9}>
+        <sphereGeometry args={[0.62, 20, 16]} />
+        <meshBasicMaterial color="#ffd54a" transparent opacity={0.13} depthWrite={false} />
+      </mesh>
+    </group>
+  );
+}
+
 // NPC: 서 있기 / 앉기(pose: "sit") / 길(path)을 따라 돌아다니기
 // 돌아다니는 NPC 의 지금 위치 (대화 버튼 거리 계산용)
 const NPC_LIVE = {};
@@ -738,7 +763,9 @@ function Npc({ npc, myPosRef }) {
           model={npc.model}
           pose={npc.pose}
           isNpc
+          {...(npc.dev ? DEV_LOOK : null)}
         />
+        {npc.dev && <GoldenGlow />}
       </group>
     </group>
   );
