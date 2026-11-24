@@ -329,6 +329,7 @@ M.update({
     "bianco": mat("Bianco_Marble_Gloss", hexrgb("f4f4f2"), 0.12),
     "vein": mat("Marble_Vein_Gray", hexrgb("b9bcbf"), 0.2),
     "charcoal": mat("Charcoal_Frame", hexrgb("26292e"), 0.45),
+    "door_gray": mat("Door_Dark_Gray", hexrgb("4b4f55"), 0.5),
     "cafe_yellow": mat("Cafe_Yellow_Wall", hexrgb("c9a417"), 0.55),
     "mint": mat("Mint_Gray_Chair", hexrgb("b8c4bf"), 0.45),
     "blue_seat": mat("Blue_Seat", hexrgb("1f6fd1"), 0.5),
@@ -378,31 +379,33 @@ def exit_sign(name, x, y, z, facing="S"):
 floor("Plaza_Granite_Floor", -9.5, -14, 14, -10, M["plaza"])
 for i in range(-9, 14, 2):
     box(f"Plaza_Grout_{i}", i, -14, 0.0, i + 0.03, -10, 0.004, M["mat_dark"])
-floor("Lobby_Marble_Floor", -8.7, -10, 7.8, -2.3, M["marble"])        # 로비·엘리베이터홀·안내데스크·탕비실 앞
+floor("Lobby_Marble_Floor", -8.7, -10, 4.5, -2.3, M["marble"])        # 로비·엘리베이터홀·안내데스크
+floor("Cafe_Vestibule_Floor", 4.5, -3.3, 7.0, -2.3, M["marble"])      # 탕비실 앞 → 카페테리아 자동문
 floor("GreenWall_Corridor_Floor", -2.45, -2.3, 0, 6.8, M["marble"])    # 그린월 복도
 floor("North_Exit_Outdoor_Floor", -3.0, 6.8, 1.0, 8.6, M["plaza"])     # 북측 출입문 밖
 floor("Restroom_Recess_Floor_1", -4.3, -2.05, -2.45, -0.75, M["marble"])
 floor("Restroom_Recess_Floor_2", -4.3, 1.55, -2.45, 2.85, M["marble"])
 floor("Lounge_Wood_Floor", 0, -2.3, 7.0, 3.75, M["wood_floor"])        # 북카페·다트 라운지
-floor("Cafe_Wood_Floor", 7.8, -6.8, 13.0, -1.2, M["wood_floor"])       # 카페테리아
+floor("Cafe_Wood_Floor", 4.5, -10, 9.4, -3.3, M["wood_floor"])        # 카페테리아 (안내데스크 대리석 벽 바로 뒤)
 floor("Training_Entry_Corr_Floor", 0, 4.45, 9.4, 6.6, M["office_floor"])
-floor("Meeting_Rooms_Floor", 0, 6.6, 7.1, 11.0, M["office_floor"])  # 회의실 2칸 (회의실+강사실 깊이의 40%)
-floor("Locker_Corridor_Floor", 7.1, -0.6, 9.4, 4.45, M["office_floor"])
-floor("North_Training_Corr_Floor", 7.1, 6.6, 9.4, 17.6, M["office_floor"])
-# 동쪽 강의장 벽면 전체(Y -1.05~23, 24.05m) = 전산강의장2 30% · 전산강의장1 30% · 일반강의장 40%
-floor("CompRoom2_Floor", 9.4, -1.05, 17.6, 6.15, M["office_floor"])     # 전산강의장2 (사물함 맞은편 ~)
-floor("CompRoomN1_Floor", 9.4, 6.15, 17.6, 13.4, M["office_floor"])     # 전산강의장1
-floor("Lecture_Floor", 9.4, 13.4, 17.6, 23.0, M["office_floor"])        # 일반강의장
-floor("Instructor_Room_Floor", 0, 11.0, 7.1, 17.6, M["office_floor"])   # 강사실 (60%)
-floor("Practice_Room_Floor", 0, 17.6, 9.4, 23.0, M["office_floor"])     # 실습실
+floor("Meeting_Rooms_Floor", 0, 6.6, 7.1, 10.45, M["office_floor"])  # 회의실 2칸 (실습실 아래 남은 공간의 50%)
+floor("Locker_Corridor_Floor", 7.0, -3.3, 9.4, 4.45, M["office_floor"])  # 남쪽 끝 = 카페테리아 북쪽 벽
+floor("North_Training_Corr_Floor", 7.1, 6.6, 9.4, 14.35, M["office_floor"])
+# 동쪽 강의장 3개 — 남쪽 벽을 건물 정면 벽(Y -10)에 맞춰 내림 (크기 그대로, 위쪽 Y 14.65~23 은 추후 수정)
+#   전산강의장2 는 카페테리아 북쪽 벽(Y -3.3)보다 문 폭만큼 북쪽으로 튀어나와 사물함 복도 쪽에 출입문
+floor("CompRoom2_Floor", 9.4, -10, 17.6, -2.2, M["office_floor"])       # 전산강의장2
+floor("CompRoomN1_Floor", 9.4, -2.2, 17.6, 8.6, M["office_floor"])      # 전산강의장1 (북측 복도 아래쪽 문까지 늘림, 4줄)
+floor("Lecture_Floor", 9.4, 8.6, 17.6, 18.2, M["office_floor"])         # 일반강의장 (크기 그대로 북쪽으로)
+floor("Instructor_Room_Floor", 0, 10.45, 7.1, 14.35, M["office_floor"])  # 강사실 (50%)
+floor("Practice_Room_Floor", 0, 14.35, 9.4, 18.2, M["office_floor"])    # 실습실 (북쪽 벽 = 일반강의장 북쪽 벽 선, 깊이 3.85m)
 
 # =====================================================================
 #  1) 정면 외관 · 원통형 회전문 (회전문 중심 X -1.2, Y -9.6)
 # =====================================================================
 RX, RY = -1.2, -9.6
 wall("Facade_Glass_West", -8.7, -10, -2.35, -10, M["glass"], h=4.2, t=0.06)
-wall("Facade_Glass_East", 1.25, -10, 13.0, -10, M["glass"], h=4.2, t=0.06)
-for i, x in enumerate([-8.7, -6.6, -4.5, -2.35, 1.25, 3.0, 4.5, 6.5, 8.5, 10.5, 13.0]):
+wall("Facade_Glass_East", 1.25, -10, 9.4, -10, M["glass"], h=4.2, t=0.06)
+for i, x in enumerate([-8.7, -6.6, -4.5, -2.35, 1.25, 3.0, 4.5, 6.5, 8.0, 9.4]):
     cbox(f"Facade_Mullion_{i + 1}", x, -10, 0, 0.1, 0.12, 4.2, M["steel"])
 box("Facade_Upper_Glass", -2.35, -10.03, 2.75, 1.25, -9.97, 4.2, M["glass"])
 box("Ceiling_Entrance_Canopy", -6, -13.2, 3.6, 4, -10, 3.8, M["steel"])
@@ -441,7 +444,7 @@ box("Lobby_Stanchion_Rope", 0.2, -8.92, 0.85, 1.1, -8.88, 0.89, M["red_leather"]
 wall("ElevHall_South_Wall", -8.7, -8.5, -2.35, -8.5, M["bianco"], openings=[(1.35, 2.45, 2.3), (3.55, 4.65, 2.3)])
 wall("ElevHall_Corner_Wall", -2.35, -10, -2.35, -8.5, M["bianco"])
 wall("ElevHall_West_Wall", -8.7, -8.5, -8.7, -4.6, M["bianco"], openings=[(2.75, 3.65, 2.25)])
-wall("ElevHall_North_Wall", -8.7, -4.6, -2.35, -4.6, M["bianco"], openings=[(0.3, 1.2, 2.25)])
+wall("ElevHall_North_Wall", -8.7, -4.6, -2.35, -4.6, M["bianco"])  # 뒷벽 문은 실제로 없어서 막음
 # 대리석 결 (얇은 회색 사선)
 for i, (x, z) in enumerate([(-7.9, 1.1), (-5.6, 2.2), (-3.4, 0.6), (-2.8, 2.6)]):
     o = cbox(f"ElevHall_Marble_Vein_{i + 1}", x, -8.42, z, 0.9, 0.005, 0.012, M["vein"])
@@ -479,7 +482,6 @@ T("ElevHall_Graphic_U5G", "U+5G", -8.6, -7.0, 1.25, 0.75, 0.22, M["magenta"], "E
 cbox("ElevHall_West_Dark_Door", -8.62, -5.3, 0, 0.05, 0.9, 2.25, M["charcoal"])
 cbox("ElevHall_Card_Reader", -8.6, -6.0, 1.15, 0.03, 0.1, 0.16, M["white"])
 # 북쪽 벽: U+tv 체험대 + IoT@home 체험대 + AED + 소화기 (사진 3)
-cbox("ElevHall_North_Dark_Door", -7.65, -4.68, 0, 0.9, 0.05, 2.25, M["charcoal"])
 box("UplusTV_Wood_Panel", -6.3, -4.75, 0.75, -4.6, -4.68, 2.65, M["wood_panel"])
 cbox("UplusTV_White_Cabinet", -5.45, -4.95, 0, 1.6, 0.45, 0.72, M["white"])
 cbox("UplusTV_Cabinet_Top", -5.45, -4.95, 0.72, 1.62, 0.47, 0.04, M["wood_panel"])
@@ -500,9 +502,9 @@ box("ElevHall_Fire_Sign", -2.85, -4.69, 1.4, -2.6, -4.67, 1.6, M["text_red"])
 #  3) 그린월 복도 (사진 1·16) — 서쪽: 검은 프레임 수직정원 3개 + 화장실 입구 2곳
 #                            동쪽: 불투명 유리 + 검은 멀리언 / 북쪽 끝: 외부 양개 유리문
 # =====================================================================
-wall("GreenWall_Corridor_West_Wall", -2.45, -6.1, -2.45, 6.8, M["bianco"],
-     openings=[(4.05, 5.35, 2.4), (7.65, 8.95, 2.4)])
-wall("GreenWall_Bianco_Segment", -2.35, -6.1, -2.35, -4.6, M["bianco"], t=0.1)
+# (엘리베이터홀 북쪽 벽 끝(Y -4.6)에서 시작 — 김지연 센터장 옆으로 튀어나와 있던 벽 토막(Y -6.1~-4.6)은 실제로 없어서 지움)
+wall("GreenWall_Corridor_West_Wall", -2.45, -4.6, -2.45, 6.8, M["bianco"],
+     openings=[(2.55, 3.85, 2.4), (6.15, 7.45, 2.4)])
 for i, gy in enumerate([-3.2, 0.4, 4.0]):
     cbox(f"GreenWall_Black_Frame_{i + 1}", -2.28, gy, 0, 0.16, 2.15, 3.2, M["charcoal"])
     cbox(f"GreenWall_Foliage_{i + 1}", -2.19, gy, 0.08, 0.08, 1.95, 3.0, M["green_wall"])
@@ -532,8 +534,9 @@ for i in range(7):
     cbox(f"GreenWall_East_Black_Mullion_{i + 1}", 0, -2.3 + i * 1.12, 0, 0.08, 0.08, WALL_H, M["charcoal"])
 # 북쪽 끝 외부 양개 유리문 + 비상구 유도등
 wall("North_Exterior_Glass_Wall", -2.45, 6.8, 0, 6.8, M["glass"], t=0.06, openings=[(0.4, 2.15, 2.5)])
-cbox("North_Exterior_GlassDoor_L", -1.65, 6.8, 0, 0.85, 0.05, 2.5, M["glass"])
-cbox("North_Exterior_GlassDoor_R", -0.75, 6.8, 0, 0.85, 0.05, 2.5, M["glass"])
+# 문 모양만 있고 지나갈 수 없음 (이름에 Door 를 넣지 않아 막힌 유리로 처리)
+cbox("North_Exterior_Glass_Leaf_L", -1.65, 6.8, 0, 0.85, 0.05, 2.5, M["glass"])
+cbox("North_Exterior_Glass_Leaf_R", -0.75, 6.8, 0, 0.85, 0.05, 2.5, M["glass"])
 for x in (-2.07, -1.22, -0.33):
     cbox(f"North_Exterior_Door_Frame_{x}", x, 6.8, 0, 0.05, 0.08, 2.5, M["steel"])
 exit_sign("North_Exit_Sign", -1.2, 6.74, 2.62, "S")
@@ -541,54 +544,85 @@ exit_sign("North_Exit_Sign", -1.2, 6.74, 2.62, "S")
 # =====================================================================
 #  4) 안내데스크 — 서쪽을 바라보는 검정 카운터 + 대리석 LG U+ 로고벽 (X 4.5)
 # =====================================================================
-wall("Reception_Marble_Logo_Wall", 4.5, -10, 4.5, -4.6, M["bianco"], t=0.25)
-wall("Pantry_Front_South_Wall", 4.5, -4.6, 7.8, -4.6, M["wall_dark"])
+wall("Reception_Marble_Logo_Wall", 4.5, -10, 4.5, -3.3, M["bianco"], t=0.25)  # 뒤쪽(동쪽)이 바로 카페테리아
 cyl("Reception_Logo_Circle", 4.36, -6.9, 1.6, 0.38, 0.05, M["magenta"], 40).rotation_euler.y = math.pi / 2
 T("Reception_Logo_Text", "LG U+", 4.36, -5.4, 1.62, 2.0, 0.55, M["magenta"], "W", extrude=0.04)
-cbox("Reception_Counter", 3.2, -5.6, 0, 0.85, 2.5, 1.1, M["black"])
-cbox("Reception_Counter_Top", 3.2, -5.6, 1.1, 0.95, 2.6, 0.04, M["charcoal"])
+cbox("Reception_Counter", 3.2, -5.55, 0, 0.85, 2.4, 1.1, M["black"])  # 남쪽 끝을 비워 택배보관실 문 앞 공간 확보
+cbox("Reception_Counter_Top", 3.2, -5.55, 1.1, 0.95, 2.5, 0.04, M["charcoal"])
 cbox("Reception_Info_Sign", 2.76, -6.6, 0.6, 0.02, 0.3, 0.3, M["white"])
 T("Reception_Info_Mark", "i", 2.74, -6.6, 0.75, 0.12, 0.2, M["black"], "W")
 cbox("Reception_Monitor", 3.45, -5.2, 1.14, 0.05, 0.5, 0.32, M["black"])
 # (안내데스크 옆 흰색 벤치 소파는 요청으로 삭제)
-for i, (x, y, s, z) in enumerate([(2.35, -7.25, 0.5, 0), (2.35, -7.8, 0.45, 0), (2.35, -7.3, 0.35, 0.4)]):
-    cbox(f"Reception_Delivery_Box_{i + 1}", x, y, z, s, s, s * 0.8, M["box"])
+# 택배보관실 — 안내데스크와 같은 검정 벽의 룸 (안내데스크 대리석 벽 ~ 정면 유리 사이, X 1.6~4.4, Y -10~-7.84 · 길이 20% 줄임)
+#   문: 북쪽 벽 동쪽 끝(안내데스크 쪽) · 안: 벽을 따라 스틸 선반 + 택배 상자
+wall("Parcel_Room_North_Wall", 1.6, -7.84, 4.4, -7.84, M["black"], openings=[(1.45, 2.45, 2.3)])  # 문 X 3.05~4.05 (폭 1m)
+wall("Parcel_Room_West_Wall", 1.6, -10, 1.6, -7.84, M["black"])
+box("Parcel_Room_Sign_Plate", 1.85, -7.78, 1.75, 2.95, -7.76, 2.05, M["white"])
+T("Parcel_Room_Sign_Text", "택배보관실", 2.4, -7.75, 1.9, 0.9, 0.18, M["text_dark"], "N", fallback="Parcel Room")
+def parcel_shelf(name, x0, y0, x1, y1):
+    for k, z in enumerate([0.1, 0.65, 1.2, 1.75]):
+        box(f"{name}_Board_{k + 1}", x0, y0, z, x1, y1, z + 0.03, M["steel"])
+    for px in (x0, x1 - 0.04):
+        for py in (y0, y1 - 0.04):
+            box(f"{name}_Post_{px:.2f}_{py:.2f}", px, py, 0, px + 0.04, py + 0.04, 2.1, M["steel"])
+    import random
+    rnd = random.Random(name)
+    for k, z in enumerate([0.13, 0.68, 1.23, 1.78]):
+        if abs(x1 - x0) > abs(y1 - y0):
+            t = x0 + 0.05
+            while t < x1 - 0.3:
+                w = rnd.uniform(0.25, 0.45)
+                h = rnd.uniform(0.18, 0.4)
+                cbox(f"{name}_Box_{k}_{t:.2f}", t + w / 2, (y0 + y1) / 2, z, w - 0.03, (y1 - y0) * rnd.uniform(0.6, 0.9), h, M["box"])
+                t += w
+        else:
+            t = y0 + 0.05
+            while t < y1 - 0.3:
+                w = rnd.uniform(0.25, 0.45)
+                h = rnd.uniform(0.18, 0.4)
+                cbox(f"{name}_Box_{k}_{t:.2f}", (x0 + x1) / 2, t + w / 2, z, (x1 - x0) * rnd.uniform(0.6, 0.9), w - 0.03, h, M["box"])
+                t += w
+parcel_shelf("Parcel_Shelf_West", 1.7, -9.9, 2.15, -8.0)
+parcel_shelf("Parcel_Shelf_South", 2.25, -9.92, 4.3, -9.47)
+for i, (x, y, sz) in enumerate([(2.6, -8.75, 0.5), (2.55, -9.2, 0.4), (2.62, -8.72, 0.35)]):  # 바닥에 쌓인 택배
+    cbox(f"Parcel_Floor_Box_{i + 1}", x, y, 0.4 if i == 2 else 0, sz, sz, sz * 0.8, M["box"])
 # KSQI 2026 스탠드 배너 (라운지 입구, 영상)
-for i, x in enumerate([1.3, 2.05]):
-    cbox(f"KSQI_Standee_{i + 1}_Board", x, -2.6, 0.08, 0.68, 0.05, 1.85, M["ksqi_blue"])
-    cbox(f"KSQI_Standee_{i + 1}_Base", x, -2.6, 0, 0.5, 0.35, 0.08, M["black"])
-    T(f"KSQI_Standee_{i + 1}_Text", "2026\nKSQI", x, -2.63, 1.4, 0.5, 0.45, M["white"], "S", extrude=0.015)
+# (로비에서 라운지 원목 바닥 안으로 한 칸 들이고 서쪽 벽에 붙임)
+for i, x in enumerate([0.52, 1.25]):
+    cbox(f"KSQI_Standee_{i + 1}_Board", x, -1.75, 0.08, 0.68, 0.05, 1.85, M["ksqi_blue"])
+    cbox(f"KSQI_Standee_{i + 1}_Base", x, -1.75, 0, 0.5, 0.35, 0.08, M["black"])
+    T(f"KSQI_Standee_{i + 1}_Text", "2026\nKSQI", x, -1.78, 1.4, 0.5, 0.45, M["white"], "S", extrude=0.015)
 
 # =====================================================================
-#  5) 탕비실 (사진 6) — 남쪽(로비)을 보는 개방형 창 + 4구 분리수거함 + Jura 커피머신 + ICETRO 제빙기
+#  5) 탕비실 (사진 6·실사) — 라운지 동쪽 벽을 따라 세로로(남북), 서쪽(라운지)을 바라봄
+#     북→남: 정수기 키큰장 · 4구 분리수거함(커피머신) · ICETRO 제빙기 → 바로 옆 카페테리아 자동문 → 대리석 벽
 # =====================================================================
-wall("Pantry_Back_Window_Wall", 4.1, -2.45, 7.0, -2.45, M["charcoal"], t=0.1, openings=[(0.7, 2.9, 0.95)])
-box("Pantry_Window_Upper", 4.8, -2.5, 1.95, 7.0, -2.4, WALL_H, M["charcoal"])
-cbox("Pantry_Tall_Purifier_Cabinet", 4.42, -2.8, 0, 0.62, 0.65, 2.7, M["white"])
-cbox("Pantry_Water_Dispenser_Niche", 4.42, -3.13, 0.9, 0.4, 0.02, 0.45, M["steel"])
-cbox("Pantry_4Bin_Counter", 5.95, -2.8, 0, 2.3, 0.65, 0.9, M["white"])
-cbox("Pantry_Counter_Top", 5.95, -2.8, 0.9, 2.35, 0.68, 0.03, M["white"])
+box("Pantry_Charcoal_Back_Panel", 6.89, -3.3, 0, 6.925, 0.6, WALL_H, M["charcoal"])  # 위쪽 짙은 회색 벽
+cbox("Pantry_Tall_Purifier_Cabinet", 6.6, 0.18, 0, 0.62, 0.62, 2.7, M["white"])
+cbox("Pantry_Water_Dispenser_Niche", 6.28, 0.18, 0.9, 0.02, 0.4, 0.45, M["steel"])
+cbox("Pantry_4Bin_Counter", 6.6, -1.3, 0, 0.65, 2.3, 0.9, M["white"])
+cbox("Pantry_Counter_Top", 6.58, -1.3, 0.9, 0.7, 2.35, 0.03, M["white"])
 for i, label in enumerate(["일반 쓰레기", "PET/캔/유리병", "종이/비닐", "커피찌꺼기"]):
-    bx = 5.1 + i * 0.57
-    box(f"Pantry_Bin_Slot_{i + 1}", bx - 0.17, -3.14, 0.72, bx + 0.17, -3.12, 0.82, M["panel_white"])
-    T(f"Pantry_Bin_Label_{i + 1}", label, bx, -3.135, 0.58, 0.42, 0.06, M["text_dark"], "S", fallback="Bin")
-    cbox(f"Pantry_Bin_Icon_{i + 1}", bx, -3.135, 0.3, 0.16, 0.01, 0.16, M["text_dark"])
-cbox("Pantry_Upper_7Door_Cabinet", 5.85, -2.75, 1.95, 2.6, 0.45, 0.75, M["white"])
-cbox("Pantry_Coffee_Sign", 5.85, -2.97, 2.1, 0.32, 0.01, 0.32, M["charcoal"])
-cbox("Pantry_Jura_Coffee_Machine", 6.45, -2.85, 0.93, 0.4, 0.42, 0.5, M["steel"])
-cbox("Pantry_Jura_Front", 6.45, -3.07, 1.05, 0.3, 0.01, 0.25, M["black"])
-for i, x in enumerate([5.3, 5.65]):
-    cyl(f"Pantry_Mug_Tree_{i + 1}", x, -2.85, 0.93, 0.02, 0.35, M["wood_light"], 8)
-    cyl(f"Pantry_Mug_Tree_Base_{i + 1}", x, -2.85, 0.93, 0.08, 0.02, M["wood_light"], 12)
-cbox("Pantry_ICETRO_Ice_Maker", 7.4, -2.85, 0, 0.75, 0.72, 1.7, M["steel"])
-cbox("Pantry_ICETRO_Bin_Front", 7.4, -3.22, 0.35, 0.68, 0.01, 0.65, M["black"])
-T("Pantry_ICETRO_Logo", "ICETRO", 7.4, -3.235, 0.85, 0.36, 0.06, M["white"], "S")
-box("Pantry_Dark_Side_Wall_W", 4.03, -3.2, 0, 4.11, -2.45, WALL_H, M["charcoal"])
+    by = -0.45 - i * 0.57  # 라운지에서 볼 때 왼쪽(북)부터
+    box(f"Pantry_Bin_Slot_{i + 1}", 6.255, by - 0.17, 0.72, 6.275, by + 0.17, 0.82, M["panel_white"])
+    T(f"Pantry_Bin_Label_{i + 1}", label, 6.265, by, 0.58, 0.42, 0.06, M["text_dark"], "W", fallback="Bin")
+    cbox(f"Pantry_Bin_Icon_{i + 1}", 6.265, by, 0.3, 0.01, 0.16, 0.16, M["text_dark"])
+cbox("Pantry_Upper_7Door_Cabinet", 6.7, -1.25, 1.95, 0.45, 2.6, 0.75, M["white"])
+cbox("Pantry_Coffee_Sign", 6.47, -1.25, 2.1, 0.01, 0.32, 0.32, M["charcoal"])
+cbox("Pantry_Jura_Coffee_Machine", 6.65, -2.0, 0.93, 0.42, 0.4, 0.5, M["steel"])
+cbox("Pantry_Jura_Front", 6.435, -2.0, 1.05, 0.01, 0.3, 0.25, M["black"])
+for i, y in enumerate([-0.75, -1.1]):
+    cyl(f"Pantry_Mug_Tree_{i + 1}", 6.65, y, 0.93, 0.02, 0.35, M["wood_light"], 8)
+    cyl(f"Pantry_Mug_Tree_Base_{i + 1}", 6.65, y, 0.93, 0.08, 0.02, M["wood_light"], 12)
+cbox("Pantry_ICETRO_Ice_Maker", 6.55, -2.86, 0, 0.72, 0.75, 1.7, M["steel"])
+cbox("Pantry_ICETRO_Bin_Front", 6.185, -2.86, 0.35, 0.01, 0.68, 0.65, M["black"])
+T("Pantry_ICETRO_Logo", "ICETRO", 6.17, -2.86, 0.85, 0.36, 0.06, M["white"], "W")
+box("Pantry_Floor_Mat", 5.7, -3.2, 0, 6.15, -2.5, 0.01, M["mat_dark"])
 
 # =====================================================================
 #  6) 북카페 · BULLSEYE 다트 라운지 (사진 4·5)
 # =====================================================================
-wall("Lounge_East_Wall", 7.0, -2.45, 7.0, 3.72, M["wood_panel"])
+wall("Lounge_East_Wall", 7.0, -3.3, 7.0, 3.72, M["wood_panel"])
 # 북쪽 벽(책장 뒤) — 교육 복도 쪽에 매립 벤치 니치가 파여 있음
 box("Lounge_North_Wall_West", 0, 3.72, 0, 4.6, 4.47, WALL_H, M["wood_panel"])
 box("Lounge_North_Wall_East", 6.8, 3.72, 0, 7.1, 4.47, WALL_H, M["wood_panel"])
@@ -616,32 +650,35 @@ for i, dy in enumerate([0.2, 1.25]):
     T(f"Bullseye_Logo_{i + 1}", "BULLSEYE", 0.66, dy, 0.16, 0.45, 0.06, M["text_red"], "E")
 tv("Lounge_Wall_TV", 1.5, 3.7, 1.75, 0.9, 0.52, "S", on=False)
 # 2단 원목 단상 + 6열 책장 (LOVE 글자·미니 트리·산타 양말)
-cbox("Lounge_Wood_Step_1", 3.8, 3.1, 0, 4.6, 0.9, 0.3, M["wood_light"])
-cbox("Lounge_Wood_Step_2", 3.8, 3.4, 0.3, 4.6, 0.5, 0.28, M["wood_light"])
+# (책장·단상 끝선 = 2인 부스 소파 시작선 X 4.95)
+cbox("Lounge_Wood_Step_1", 3.225, 3.1, 0, 3.45, 0.9, 0.3, M["wood_light"])
+cbox("Lounge_Wood_Step_2", 3.225, 3.4, 0.3, 3.45, 0.5, 0.28, M["wood_light"])
 cbox("Lounge_Step_Left_Side_Box", 1.4, 3.2, 0, 0.35, 0.45, 0.6, M["wood_light"])
-cbox("Lounge_Bookcase_Back", 3.8, 3.65, 0.58, 4.4, 0.08, 2.4, M["wood_light"])
-for i, bx in enumerate([1.6, 2.33, 3.06, 3.8, 4.53, 5.26, 6.0]):
+cbox("Lounge_Bookcase_Back", 3.275, 3.65, 0.58, 3.35, 0.08, 2.4, M["wood_light"])
+for i, bx in enumerate([1.6, 2.27, 2.94, 3.61, 4.28, 4.95]):
     cbox(f"Lounge_Bookcase_Col_{i + 1}", bx, 3.47, 0.58, 0.05, 0.35, 2.4, M["wood_light"])
 for i, bz in enumerate([0.6, 1.08, 1.56, 2.04, 2.52, 2.98]):
-    cbox(f"Lounge_Bookcase_Row_{i + 1}", 3.8, 3.47, bz, 4.4, 0.35, 0.04, M["wood_light"])
-for c in range(6):
+    cbox(f"Lounge_Bookcase_Row_{i + 1}", 3.275, 3.47, bz, 3.35, 0.35, 0.04, M["wood_light"])
+for c in range(5):
     for r in range(5):
         if (c, r) in ((4, 1), (2, 3)):
             continue
-        x0 = 1.68 + c * 0.73
+        x0 = 1.67 + c * 0.67
         for k in range(3 + (c + r) % 3):
             cbox(f"Lounge_Book_{c}_{r}_{k}", x0 + k * 0.09, 3.45, 0.64 + r * 0.48, 0.07, 0.24,
                  0.24 + (k % 2) * 0.05, M["book"][(c + r + k) % 6])
-T("Lounge_Bookcase_LOVE", "LOVE", 5.6, 3.3, 1.2, 0.5, 0.12, M["white"], "S", extrude=0.03)
-cyl("Lounge_Mini_Xmas_Tree", 4.9, 3.45, 2.1, 0.1, 0.32, M["green_dark"], 8, r2=0.0)
-cbox("Lounge_Red_Santa_Stocking", 6.6, 3.66, 1.55, 0.22, 0.05, 0.36, M["red_leather"], rot_z=0.0)
-for i, (x, z) in enumerate([(2.0, 1.12), (4.15, 0.64), (5.6, 1.6)]):
+T("Lounge_Bookcase_LOVE", "LOVE", 4.55, 3.3, 1.2, 0.5, 0.12, M["white"], "S", extrude=0.03)
+cyl("Lounge_Mini_Xmas_Tree", 4.3, 3.45, 2.1, 0.1, 0.32, M["green_dark"], 8, r2=0.0)
+cbox("Lounge_Red_Santa_Stocking", 5.45, 3.66, 1.75, 0.22, 0.05, 0.36, M["red_leather"], rot_z=0.0)
+for i, (x, z) in enumerate([(2.0, 1.12), (3.95, 0.64), (4.6, 1.6)]):
     leaf_ball(f"Lounge_Shelf_Plant_{i + 1}", x, 3.45, z + 0.12, 0.12, M["plant"])
 # KSQI 현수막 (영상) — 책장 위
 # 7·8·9층 상담실과 같은 그림 현수막 (blender/tex/ksqi_banner.jpg) — 원목 루버 천장 바로 아래, 책장 위쪽
 BANNER_CANDIDATES = [
     r"C:\Users\User\company-metaverse\blender\tex\ksqi_banner.jpg",
     os.path.join(os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else "", "tex", "ksqi_banner.jpg"),
+    os.path.join(os.getcwd(), "blender", "tex", "ksqi_banner.jpg"),
+    os.path.join(os.getcwd(), "tex", "ksqi_banner.jpg"),
 ]
 BANNER_PATH = next((p for p in BANNER_CANDIDATES if p and os.path.isfile(p)), None)
 
@@ -675,93 +712,107 @@ def image_banner(name, path, cx, y, z1, w, h):
 
 
 if BANNER_PATH:
-    image_banner("Lounge_KSQI_Banner", BANNER_PATH, 3.8, 3.22, 1.92, 4.33, 1.01)
+    image_banner("Lounge_KSQI_Banner", BANNER_PATH, 3.275, 3.22, 2.16, 3.3, 0.77)
 else:
-    box("Lounge_KSQI_Banner", 1.5, 3.25, 2.55, 6.1, 3.3, 2.94, M["banner_white"])
-    T("Lounge_KSQI_Banner_Line1", "전 산업군 1위 KSQI '고객감동콜센터'", 3.8, 3.22, 2.83, 4.3, 0.15, M["text_red"], "S",
+    box("Lounge_KSQI_Banner", 1.62, 3.25, 2.55, 4.93, 3.3, 2.94, M["banner_white"])
+    T("Lounge_KSQI_Banner_Line1", "전 산업군 1위 KSQI '고객감동콜센터'", 3.275, 3.22, 2.83, 3.2, 0.15, M["text_red"], "S",
       fallback="KSQI No.1 Customer Center")
-    T("Lounge_KSQI_Banner_Line2", "통신업계 1위 KS-CQI '최우수기업' 달성", 3.8, 3.22, 2.65, 4.3, 0.15, M["text_navy"], "S",
+    T("Lounge_KSQI_Banner_Line2", "통신업계 1위 KS-CQI '최우수기업' 달성", 3.275, 3.22, 2.65, 3.2, 0.15, M["text_navy"], "S",
       fallback="KS-CQI Best Company")
-# 엠보싱 가죽 스툴 세트 (사진 5 배치)
-cbox("Lounge_Cube_White_Back", 2.2, 2.35, 0, 0.5, 0.5, 0.44, M["white"])
-cbox("Lounge_Bench_Black_Left", 2.7, 1.35, 0, 0.6, 1.75, 0.44, M["charcoal"])
-cbox("Lounge_Coffee_Table_Wood", 3.45, 1.35, 0.42, 0.58, 1.25, 0.04, M["wood_light"])
+# 엠보싱 가죽 스툴 세트 (사진 5 배치 · 부스 소파 자리를 위해 서쪽으로 0.3m)
+cbox("Lounge_Cube_White_Back", 1.9, 2.35, 0, 0.5, 0.5, 0.44, M["white"])
+cbox("Lounge_Bench_Black_Left", 2.4, 1.35, 0, 0.6, 1.75, 0.44, M["charcoal"])
+cbox("Lounge_Coffee_Table_Wood", 3.15, 1.35, 0.42, 0.58, 1.25, 0.04, M["wood_light"])
 for i, (dx, dy) in enumerate([(-0.24, -0.55), (0.24, -0.55), (-0.24, 0.55), (0.24, 0.55)]):
-    cbox(f"Lounge_Coffee_Table_Leg_{i + 1}", 3.45 + dx, 1.35 + dy, 0, 0.04, 0.04, 0.42, M["black"])
-cbox("Lounge_Bench_Red_Right", 4.25, 1.35, 0, 0.6, 1.75, 0.44, M["red_leather"])
-cbox("Lounge_Bench_White_Right", 4.85, 1.35, 0, 0.6, 1.75, 0.44, M["white"])
-cbox("Lounge_Cube_Red_Front", 4.45, 0.2, 0, 0.55, 0.55, 0.44, M["red_leather"])
-cbox("Lounge_Gray_Low_Table", 5.35, 0.15, 0.36, 0.9, 0.6, 0.04, M["panel_white"])
-# 회색 퀼팅 하이백 소파 2개 (원본보다 서쪽으로 조금: 사물함 벽과 겹침 방지)
-for i, sx in enumerate([5.75, 6.5]):
-    cbox(f"Lounge_HighBack_Sofa_{i + 1}_Seat", sx, 1.6, 0, 0.7, 1.25, 0.45, M["cushion_gray"])
-    cbox(f"Lounge_HighBack_Sofa_{i + 1}_Back", sx + 0.28, 1.6, 0.45, 0.14, 1.25, 0.95, M["cushion_gray"])
-cyl("Lounge_Round_Side_Table_Top", 6.35, -0.3, 0.6, 0.25, 0.03, M["white"], 20)
-cyl("Lounge_Round_Side_Table_Leg", 6.35, -0.3, 0, 0.03, 0.6, M["wood_light"], 8)
+    cbox(f"Lounge_Coffee_Table_Leg_{i + 1}", 3.15 + dx, 1.35 + dy, 0, 0.04, 0.04, 0.42, M["black"])
+cbox("Lounge_Bench_Red_Right", 3.95, 1.35, 0, 0.6, 1.75, 0.44, M["red_leather"])
+cbox("Lounge_Bench_White_Right", 4.55, 1.35, 0, 0.6, 1.75, 0.44, M["white"])
+cbox("Lounge_Cube_Red_Front", 4.15, 0.2, 0, 0.55, 0.55, 0.44, M["red_leather"])
+# (회색 협탁은 삭제)
+# 회색 패브릭 2인 부스 소파 2개 — 등받이·옆날개가 높고 깊게 파여 있음, 가운데 둥근 테이블을 두고 대칭으로 마주봄
+BOOTH_Y1, BOOTH_Y2 = 2.2, 3.65  # 북쪽 원목 벽(산타 양말)에 붙음
+for i, (back_x, face) in enumerate([(4.95, 1), (6.92, -1)]):  # 서쪽 부스(동쪽을 봄) · 동쪽 부스(서쪽을 봄)
+    bx0, bx1 = (back_x, back_x + 0.72) if face > 0 else (back_x - 0.72, back_x)
+    seat_x0, seat_x1 = (back_x + 0.16, back_x + 0.72) if face > 0 else (back_x - 0.72, back_x - 0.16)
+    box(f"Lounge_Booth_Sofa_{i + 1}_Seat", seat_x0, BOOTH_Y1 + 0.08, 0, seat_x1, BOOTH_Y2 - 0.08, 0.45, M["cushion_gray"])
+    box(f"Lounge_Booth_Sofa_{i + 1}_Back", min(back_x, back_x + face * 0.16), BOOTH_Y1, 0,
+        max(back_x, back_x + face * 0.16), BOOTH_Y2, 1.4, M["cushion_gray"])
+    for j, (wy0, wy1) in enumerate([(BOOTH_Y1, BOOTH_Y1 + 0.08), (BOOTH_Y2 - 0.08, BOOTH_Y2)]):
+        box(f"Lounge_Booth_Sofa_{i + 1}_Wing_{j + 1}", bx0, wy0, 0, bx1, wy1, 1.4, M["cushion_gray"])
+    for k in range(4):  # 등받이 누빔 줄
+        box(f"Lounge_Booth_Sofa_{i + 1}_Quilt_{k + 1}", back_x + face * 0.16 - 0.005, BOOTH_Y1 + 0.1, 0.65 + k * 0.2,
+            back_x + face * 0.16 + 0.005, BOOTH_Y2 - 0.1, 0.665 + k * 0.2, M["charcoal"])
+cyl("Lounge_Round_Side_Table_Top", 5.94, 2.93, 0.6, 0.24, 0.03, M["white"], 20)
+for i, a in enumerate([0.3, 2.4, 4.5]):  # 원목 삼각 다리
+    leg = cbox(f"Lounge_Round_Side_Table_Leg_{i + 1}", 5.94 + 0.1 * math.cos(a), 2.93 + 0.1 * math.sin(a), 0, 0.03, 0.03, 0.6,
+               M["wood_light"])
 box("Lounge_Floor_Red_Line", 0.0, -2.32, 0, 4.1, -2.28, 0.006, M["text_red"])
 
 # =====================================================================
-#  7) 카페테리아 (사진 7·8) — 검정 슬라이딩 도어 · 노래방 · 노란 ㄱ자 벽 · 혈압계 · 인바디
+#  7) 카페테리아 (사진 7·8 · 실사) — 안내데스크 대리석 벽 바로 뒤(동쪽) · X 4.5~9.4, Y -10~-3.3
+#     출입: 북쪽 벽 검정 자동문 (탕비실 제빙기 바로 옆) · 남쪽은 건물 정면 유리창
 # =====================================================================
-wall("Cafe_West_Wall", 7.8, -6.8, 7.8, -1.2, M["charcoal"], openings=[(2.35, 3.5, 2.45)])  # 문: 제빙기 바로 오른쪽(사진 6)
-wall("Cafe_South_White_Wall", 7.8, -6.8, 13.0, -6.8, M["white"])
-wall("Cafe_North_Brick_Wall", 7.8, -1.2, 13.0, -1.2, M["brick"])
-for i in range(10):  # 벽돌 줄눈
-    box(f"Cafe_Brick_Course_{i + 1}", 7.9, -1.28, 0.2 + i * 0.3, 12.9, -1.27, 0.215 + i * 0.3, M["panel_white"])
-wall("Cafe_East_Window_Wall", 13.0, -6.8, 13.0, -1.2, M["charcoal"], openings=[(1.0, 5.2, 0.9)])
-box("Cafe_East_Window_Header", 12.93, -5.8, 2.6, 13.07, -1.6, WALL_H, M["charcoal"])
-box("Cafe_East_Window_Glass", 12.98, -5.8, 0.9, 13.02, -1.6, 2.6, M["glass"])
-for i in range(14):  # 우드 블라인드
-    box(f"Cafe_Wood_Blind_Slat_{i + 1}", 12.92, -5.75, 1.75 + i * 0.06, 12.96, -1.65, 1.77 + i * 0.06, M["blind"])
-cbox("Cafe_Window_Wood_Counter", 12.7, -3.7, 1.0, 0.45, 4.0, 0.05, M["wood_light"])
-for i in range(3):
-    cbox(f"Cafe_Window_Counter_Leg_{i + 1}", 12.7, -5.4 + i * 1.7, 0, 0.05, 0.05, 1.0, M["black"])
-# 슬라이딩 도어 (열린 상태 → Door) + 소화기
-cbox("Cafe_Black_Sliding_Door_Open", 7.72, -5.0, 0, 0.06, 1.15, 2.45, M["charcoal"])  # 옆으로 밀어 연 상태
-ext_stand("Cafe_Door_Extinguisher", 8.1, -1.55)
-# 노래방 기기
-cbox("Cafe_Karaoke_Speaker", 8.3, -2.65, 0, 0.58, 0.62, 0.76, M["charcoal"])
-cbox("Cafe_Karaoke_Amp_Rack", 8.3, -2.65, 0.76, 0.54, 0.58, 0.38, M["steel"])
-cbox("Cafe_Karaoke_Monitor", 8.3, -2.65, 1.14, 0.4, 0.56, 0.36, M["neon"], rot_z=-0.2)
-# 노란 ㄱ자 포인트 벽 + 3단 원목 선반 + 분리수거함·전자레인지·커피머신·정수기·냉장고
-box("Cafe_Yellow_Wall_West", 7.88, -6.7, 0.9, 7.96, -4.6, 2.75, M["cafe_yellow"])
-box("Cafe_Yellow_Wall_South", 7.88, -6.73, 0.9, 9.6, -6.68, 2.75, M["cafe_yellow"])
+wall("Cafe_North_Wall", 4.5, -3.3, 9.4, -3.3, M["charcoal"], openings=[(0.45, 1.65, 2.45)])  # 문 X 4.95~6.15
+wall("Cafe_East_Wall", 9.4, -10, 9.4, -3.3, M["white"])  # 사물함 복도 동쪽 벽과 일직선
+# 자동문 (좌우로 열림) + 카페테리아 표지판
+box("AutoDoor_Cafe_L", 4.95, -3.32, 0, 5.55, -3.28, 2.45, M["glass"])  # 투명 유리 자동문
+box("AutoDoor_Cafe_R", 5.55, -3.32, 0, 6.15, -3.28, 2.45, M["glass"])
+for side, xc in (("L", 5.25), ("R", 5.85)):
+    T(f"AutoDoorLogo_Cafe_{side}_N", "LG U+", xc, -3.265, 1.35, 0.45, 0.12, M["magenta"], "N", extrude=0.01)
+    T(f"AutoDoorLogo_Cafe_{side}_S", "LG U+", xc, -3.335, 1.35, 0.45, 0.12, M["magenta"], "S", extrude=0.01)
+cbox("Cafe_Door_Sign_Plate", 6.35, -3.2, 2.45, 0.32, 0.03, 0.36, M["white"])
+T("Cafe_Door_Sign_Text", "카페테리아", 6.35, -3.18, 2.5, 0.28, 0.07, M["text_dark"], "N", fallback="Cafeteria")
+T("Cafe_Door_Sign_Cup", "☕", 6.35, -3.18, 2.62, 0.16, 0.14, M["text_dark"], "N", fallback="CAFE")
+# (사진 DSC04489) 북쪽 벽 서→동: 출입문 → 소화기 → 노래방 기기 → 노란 벽(분리수거함·전자레인지·커피머신·선반) → 정수기 → 냉장고
+ext_stand("Cafe_Door_Extinguisher", 6.4, -3.62)
+cbox("Cafe_Karaoke_Speaker", 6.9, -3.7, 0, 0.58, 0.6, 0.76, M["charcoal"])
+cbox("Cafe_Karaoke_Amp_Rack", 6.9, -3.7, 0.76, 0.54, 0.56, 0.38, M["steel"])
+cbox("Cafe_Karaoke_Monitor", 6.9, -3.6, 1.14, 0.5, 0.36, 0.34, M["neon"])
+box("Cafe_Yellow_Wall_North", 7.3, -3.42, 0.85, 9.32, -3.38, 2.75, M["cafe_yellow"])
+box("Cafe_Yellow_Wall_East", 9.28, -4.2, 0.85, 9.32, -3.4, 2.75, M["cafe_yellow"])
 for i, sz in enumerate([1.45, 1.85, 2.25]):
-    box(f"Cafe_Yellow_Wood_Shelf_{i + 1}", 7.96, -5.9, sz, 8.25, -4.7, sz + 0.04, M["wood_light"])
-cbox("Cafe_4Bin_White_Counter", 8.25, -5.2, 0, 0.6, 1.1, 0.9, M["white"])
-cbox("Cafe_White_Microwave", 8.25, -4.95, 0.9, 0.38, 0.48, 0.28, M["white"])
-cbox("Cafe_Black_Espresso", 8.25, -5.45, 0.9, 0.38, 0.36, 0.4, M["black"])
-cbox("Cafe_Water_Purifier", 8.25, -5.95, 0, 0.36, 0.36, 1.3, M["white"])
-cbox("Cafe_Silver_Fridge", 8.85, -6.35, 0, 0.7, 0.68, 1.84, M["steel"])
-# 원형 테이블 3 + 민트·흰·검정·파랑 의자
-for i, (tx, ty) in enumerate([(9.4, -4.4), (10.15, -3.4), (10.9, -2.4)]):
+    box(f"Cafe_Yellow_Wood_Shelf_{i + 1}", 7.35, -3.68, sz, 8.4, -3.42, sz + 0.04, M["wood_light"])
+cbox("Cafe_4Bin_White_Counter", 7.85, -3.7, 0, 1.0, 0.6, 0.9, M["white"])
+for i in range(4):
+    bx = 7.47 + i * 0.25
+    box(f"Cafe_Bin_Slot_{i + 1}", bx - 0.09, -4.015, 0.74, bx + 0.09, -4.0, 0.8, M["panel_white"])
+    cbox(f"Cafe_Bin_Icon_{i + 1}", bx, -4.008, 0.35, 0.1, 0.01, 0.1, M["text_dark"])
+cbox("Cafe_White_Microwave", 7.65, -3.68, 0.9, 0.46, 0.36, 0.28, M["white"])
+cbox("Cafe_Black_Espresso", 8.12, -3.65, 0.9, 0.3, 0.38, 0.42, M["black"])
+cbox("Cafe_Water_Purifier", 8.55, -3.62, 0, 0.36, 0.42, 1.3, M["white"])
+cbox("Cafe_Silver_Fridge", 9.02, -3.75, 0, 0.58, 0.7, 1.84, M["steel"])
+# 원형 테이블 3 + 민트·흰·검정 의자 + 파란 의자 (출입문 쪽)
+for i, (tx, ty) in enumerate([(5.6, -5.4), (6.9, -6.9), (5.7, -8.4)]):
     cyl(f"Cafe_Round_Table_{i + 1}_Top", tx, ty, 0.72, 0.4, 0.04, M["white"], 28)
     for j, a in enumerate([0.4, 2.5, 4.6]):
-        lg = cbox(f"Cafe_Round_Table_{i + 1}_Leg_{j + 1}", tx + 0.15 * math.cos(a), ty + 0.15 * math.sin(a), 0, 0.04, 0.04,
-                  0.72, M["wood_light"])
+        cbox(f"Cafe_Round_Table_{i + 1}_Leg_{j + 1}", tx + 0.15 * math.cos(a), ty + 0.15 * math.sin(a), 0, 0.04, 0.04,
+             0.72, M["wood_light"])
     chair(f"Cafe_Shell_Chair_{i + 1}_A", tx - 0.6, ty, M["mint"])
     chair(f"Cafe_Shell_Chair_{i + 1}_B", tx + 0.6, ty, [M["white"], M["black"], M["mint"]][i])
-chair("Cafe_Blue_Seat_Chair", 9.2, -2.0, M["blue_seat"])
-# 원목 하이 바 테이블 + 바 스툴 4 + 대형 TV (남쪽 벽)
-cbox("Cafe_Wood_Bar_Table", 10.4, -6.0, 1.0, 2.1, 0.62, 0.05, M["wood_light"])
-for i, dx in enumerate([-0.95, 0.95]):
-    cbox(f"Cafe_Bar_Table_Leg_{i + 1}", 10.4 + dx, -6.0, 0, 0.06, 0.5, 1.0, M["black"])
-for i, bx in enumerate([9.65, 10.15, 10.65, 11.15]):
-    cyl(f"Cafe_Bar_Stool_Seat_{i + 1}", bx, -5.4, 0.68, 0.17, 0.05, M["white"] if i % 2 else M["black"], 16)
-    cyl(f"Cafe_Bar_Stool_Leg_{i + 1}", bx, -5.4, 0, 0.03, 0.68, M["wood_light"], 8)
-tv("Cafe_Large_Wall_TV", 10.8, -6.72, 1.5, 1.55, 0.88, "N", on=False)
-# 건강관리 코너: 자동 혈압계 + 회전 스툴 + 인바디 + 안내 포스터
-cbox("Cafe_BP_Monitor_Stand", 12.0, -6.35, 0, 0.48, 0.42, 0.76, M["white"])
-cbox("Cafe_BP_Monitor_Body", 12.0, -6.35, 0.76, 0.38, 0.32, 0.24, M["white"])
-cyl("Cafe_BP_Lime_Cuff", 12.1, -6.18, 0.82, 0.09, 0.16, M["lime"], 16).rotation_euler.x = math.pi / 2
-cyl("Cafe_BP_Black_Stool", 11.8, -5.85, 0, 0.18, 0.45, M["black"], 16)
-cbox("Cafe_InBody_Base", 12.45, -5.6, 0, 0.45, 0.55, 0.08, M["charcoal"])
-cbox("Cafe_InBody_Column", 12.62, -5.6, 0.08, 0.08, 0.12, 0.95, M["white"])
-cbox("Cafe_InBody_Head", 12.62, -5.6, 1.03, 0.3, 0.2, 0.08, M["white"])
-box("Cafe_InBody_Poster", 12.92, -6.6, 1.3, 12.94, -6.05, 2.0, M["banner_white"])
-T("Cafe_InBody_Poster_Text", "인바디검사", 12.95, -6.32, 1.88, 0.45, 0.07, M["text_dark"], "W", fallback="InBody")
-for i in range(3):  # 펜던트·레일 조명 (천장)
-    box(f"Ceiling_Cafe_Track_Light_{i + 1}", 8.4, -5.6 + i * 1.6, 3.1, 12.4, -5.55 + i * 1.6, 3.15, M["black"])
+chair("Cafe_Blue_Seat_Chair", 5.15, -4.45, M["blue_seat"])
+# 동쪽 벽: 대형 TV + 원목 하이 바 테이블 + 바 스툴 4
+tv("Cafe_Large_Wall_TV", 9.31, -5.6, 1.45, 1.55, 0.88, "W", on=False)
+cbox("Cafe_Wood_Bar_Table", 8.55, -5.6, 1.0, 0.62, 2.1, 0.05, M["wood_light"])
+for i, dy in enumerate([-0.95, 0.95]):
+    cbox(f"Cafe_Bar_Table_Leg_{i + 1}", 8.55, -5.6 + dy, 0, 0.5, 0.06, 1.0, M["black"])
+for i, by in enumerate([-6.35, -5.85, -5.35, -4.85]):
+    cyl(f"Cafe_Bar_Stool_Seat_{i + 1}", 7.95, by, 0.68, 0.17, 0.05, M["white"] if i % 2 else M["black"], 16)
+    cyl(f"Cafe_Bar_Stool_Leg_{i + 1}", 7.95, by, 0, 0.03, 0.68, M["wood_light"], 8)
+# 남쪽 정면 유리창 우드 블라인드
+for i in range(14):
+    box(f"Cafe_Wood_Blind_Slat_{i + 1}", 5.0, -9.93, 1.75 + i * 0.06, 9.0, -9.89, 1.77 + i * 0.06, M["blind"])
+# 건강관리 코너(동쪽 벽 남쪽): 자동 혈압계 + 회전 스툴 + 인바디 + 안내 포스터
+cbox("Cafe_BP_Monitor_Stand", 9.05, -7.3, 0, 0.48, 0.42, 0.76, M["white"])
+cbox("Cafe_BP_Monitor_Body", 9.05, -7.3, 0.76, 0.38, 0.32, 0.24, M["white"])
+cyl("Cafe_BP_Lime_Cuff", 8.9, -7.25, 0.82, 0.09, 0.16, M["lime"], 16).rotation_euler.y = math.pi / 2
+cyl("Cafe_BP_Black_Stool", 8.55, -7.3, 0, 0.18, 0.45, M["black"], 16)
+cbox("Cafe_InBody_Base", 9.0, -8.5, 0, 0.55, 0.45, 0.08, M["charcoal"])
+cbox("Cafe_InBody_Column", 9.17, -8.5, 0.08, 0.12, 0.08, 0.95, M["white"])
+cbox("Cafe_InBody_Head", 9.17, -8.5, 1.03, 0.2, 0.3, 0.08, M["white"])
+box("Cafe_InBody_Poster", 9.3, -9.0, 1.3, 9.32, -8.45, 2.0, M["banner_white"])
+T("Cafe_InBody_Poster_Text", "인바디검사", 9.29, -8.72, 1.88, 0.45, 0.07, M["text_dark"], "W", fallback="InBody")
+for i in range(3):  # 레일 조명 (천장)
+    box(f"Ceiling_Cafe_Track_Light_{i + 1}", 5.0, -8.6 + i * 2.0, 3.1, 8.9, -8.55 + i * 2.0, 3.15, M["black"])
 
 # =====================================================================
 #  8) 교육 복도 (사진 9·10) — 불투명 유리 회의실 · 보안 유리문(LG U+) · TV · 매립 벤치 니치
@@ -782,15 +833,15 @@ for i, x in enumerate([0.15, 1.0, 1.95, 3.55, 4.4, 5.35, 7.0]):
 for i in range(6):  # 유리 사선 패턴
     o = cbox(f"MeetingRoom_Glass_Pattern_{i + 1}", 0.6 + i * 1.1, 6.56, 1.0, 1.0, 0.005, 0.01, M["panel_white"])
     o.rotation_euler.y = 0.35
-wall("MeetingRoom_Divider", 3.55, 6.6, 3.55, 11.0, M["frosted"], t=0.06)
-wall("MeetingRoom_Back_Wall", 0, 11.0, 7.1, 11.0, M["wall_white"])
-wall("MeetingRoom_West_Wall", 0, 6.8, 0, 11.0, M["wall_white"])
+wall("MeetingRoom_Divider", 3.55, 6.6, 3.55, 10.45, M["frosted"], t=0.06)
+wall("MeetingRoom_Back_Wall", 0, 10.45, 7.1, 10.45, M["wall_white"])
+wall("MeetingRoom_West_Wall", 0, 6.8, 0, 10.45, M["wall_white"])
 cbox("MeetingRoom_Door_1_Open", 1.48, 7.1, 0, 0.05, 0.92, 2.25, M["frosted"])
 cbox("MeetingRoom_Door_2_Open", 4.88, 7.1, 0, 0.05, 0.92, 2.25, M["frosted"])
 for i, cx in enumerate([1.8, 5.3]):
-    cbox(f"MeetingRoom_Table_{i + 1}", cx, 9.2, 0, 2.0, 0.9, 0.74, M["white"])
+    cbox(f"MeetingRoom_Table_{i + 1}", cx, 9.1, 0, 2.0, 0.9, 0.74, M["white"])
     for j in range(3):
-        chair(f"MeetingRoom_Chair_{i + 1}_{j + 1}", cx - 0.6 + j * 0.6, 8.5, M["black"])
+        chair(f"MeetingRoom_Chair_{i + 1}_{j + 1}", cx - 0.6 + j * 0.6, 8.35, M["black"])
 ext_stand("TrainingCorr_Extinguisher", 0.55, 6.3)
 tape_square("TrainingCorr_Ext_Tape", 0.55, 6.3)
 # 남쪽 벽: TV · 액자 게시판 (니치 벽 = 라운지 북쪽 벽)
@@ -806,8 +857,8 @@ cbox("TrainingCorr_Bench_Orange_Cushion", 6.4, 4.1, 0.45, 0.4, 0.15, 0.32, M["re
 # =====================================================================
 #  9) 사물함 복도 (사진 11·15) — 01~56 사물함 · 3x3 패브릭 매립 벤치 · 전산강의장1
 # =====================================================================
-box("Locker_Corridor_South_End_Wall", 7.0, -0.68, 0, 9.5, -0.6, WALL_H, M["panel_white"])
-wall("Locker_Corridor_East_Wall", 9.4, -0.6, 9.4, 4.45, M["panel_white"], openings=[(0.15, 1.25, 2.3)])
+# (복도 남쪽 끝 벽은 없애고 카페테리아 북쪽 벽까지 늘림 → 동쪽 벽이 카페 동쪽 벽과 한 줄)
+wall("Locker_Corridor_East_Wall", 9.4, -3.3, 9.4, 4.45, M["panel_white"], openings=[(0.15, 1.05, 2.3)])  # 전산2 문 (전산1 문은 북측 복도로 옮겨 벽)
 LOCKER_FACE = 7.45
 for c in range(14):
     for r in range(4):
@@ -819,23 +870,36 @@ for c in range(14):
         box(f"Locker_{n:02d}_Keypad", LOCKER_FACE, y1 + 0.05, z1 + 0.18, LOCKER_FACE + 0.02, y1 + 0.1, z1 + 0.3, M["black"])
 box("Locker_Top_Blank_Row", 7.07, -0.14, 2.03, LOCKER_FACE, 4.2, 2.55, M["white"])
 # 3x3 회색 패브릭 매립 벤치 (동쪽 벽)
-box("Locker_Bench_Charcoal_Surround", 9.12, 1.25, 0, 9.4, 4.25, 2.7, M["charcoal"])
-box("Locker_Bench_Seat_Cushion", 8.85, 1.3, 0, 9.12, 4.2, 0.45, M["cushion_gray"])
-for i, ry in enumerate([1.8, 2.75, 3.7]):
+# (교육 복도 끝선 Y 4.45 부터 전산강의장2 문 조금 앞 Y -1.6 까지)
+box("Locker_Bench_Charcoal_Surround", 9.12, -1.6, 0, 9.4, 4.45, 2.7, M["charcoal"])
+box("Locker_Bench_Seat_Cushion", 8.85, -1.55, 0, 9.12, 4.4, 0.45, M["cushion_gray"])
+for i, ry in enumerate([-1.05, -0.06, 0.93, 1.92, 2.91, 3.9]):
     for j, cz in enumerate([0.75, 1.35, 1.95]):
         cbox(f"Locker_Bench_Fabric_Tile_{i}_{j}", 9.1, ry, cz - 0.28, 0.04, 0.9, 0.56, M["cushion_gray"])
-for i, cy in enumerate([1.5, 1.77, 2.05]):
+for i, cy in enumerate([-1.25, -0.98, 0.3, 1.5, 1.77, 2.05, 3.6]):
     cbox(f"Locker_Bench_BW_Pillow_{i + 1}", 8.97, cy, 0.45, 0.2, 0.3, 0.3, M["white"] if i % 2 else M["black"], rot_z=0.15)
-plant("Locker_End_Lucky_Bamboo", 7.9, -0.3, 1.7)
-cbox("CompRoom1_Dark_Door_Open", 9.85, 0.1, 0, 0.9, 0.05, 2.25, M["charcoal"])
-T("Sign_CompRoom1_Text", "전산강의장2", 9.31, 0.1, 2.45, 0.7, 0.12, M["text_dark"], "W", fallback="PC Room 2")
+plant("Locker_End_Lucky_Bamboo", 7.45, -3.0, 1.7)
+box("Sign_CompRoom2_Plate", 9.31, -3.05, 2.35, 9.33, -2.45, 2.58, M["white"])
+T("Sign_CompRoom2_Text", "전산강의장2", 9.3, -2.75, 2.46, 0.52, 0.1, M["text_dark"], "W", fallback="PC Room 2")
 # (사물함 맞은편 작은 강의장은 삭제 → 전산강의장2 가 이 자리부터 시작, 문은 사물함 복도 쪽)
 
 # 교육 복도 동쪽 끝(분기점): 4구 분리수거함 + TV + 화분
 wall("Junction_East_Wall", 9.4, 4.45, 9.4, 6.6, M["panel_white"])
-cbox("Junction_End_4Bin_Cabinet", 9.12, 5.5, 0, 0.5, 1.8, 0.9, M["white"])
-tv("Junction_End_TV", 9.33, 5.5, 1.5, 0.9, 0.52, "W")
-plant("Junction_End_Plant", 9.1, 4.75, 1.3)
+# (사진 4490) 교육 복도 끝 벽: 복도 진입선(Y 4.45)부터 전산강의장1 문 앞까지 — 분리수거함 + TV + 정수기
+cbox("Junction_End_4Bin_Cabinet", 9.12, 5.55, 0, 0.5, 2.1, 0.9, M["white"])
+cbox("Junction_End_Cabinet_Top", 9.1, 5.55, 0.9, 0.54, 2.12, 0.03, M["white"])
+for i, label in enumerate(["일반 쓰레기", "PET/캔/유리병", "종이/비닐", "음식물"]):
+    by = 6.33 - i * 0.52  # 복도에서 볼 때 왼쪽(북)부터
+    box(f"Junction_Bin_Slot_{i + 1}", 8.855, by - 0.15, 0.72, 8.87, by + 0.15, 0.8, M["panel_white"])
+    T(f"Junction_Bin_Label_{i + 1}", label, 8.86, by, 0.6, 0.38, 0.05, M["text_dark"], "W", fallback="Bin")
+    cbox(f"Junction_Bin_Icon_{i + 1}", 8.86, by, 0.32, 0.01, 0.14, 0.14, M["text_dark"])
+    if i:
+        box(f"Junction_Bin_Gap_{i}", 8.855, by + 0.255, 0.05, 8.865, by + 0.265, 0.88, M["panel_white"])
+tv("Junction_End_TV", 9.33, 5.55, 1.45, 0.9, 0.52, "W")
+cbox("Junction_Water_Purifier", 9.13, 6.88, 0, 0.45, 0.4, 1.35, M["white"])
+cbox("Junction_Water_Purifier_Niche", 8.9, 6.88, 0.85, 0.01, 0.26, 0.3, M["steel"])
+for i, (fx, fy) in enumerate([(9.12, 5.0), (9.12, 6.1)]):
+    leaf_ball(f"Junction_Cabinet_Flower_{i + 1}", fx, fy, 1.0, 0.07, M["red_flower"])
 
 # =====================================================================
 #  10) 북측 강의장 복도 — 상담사 액자 · 끝에서 서쪽=강사실, 북쪽=실습실, 동쪽=일반강의장
@@ -888,10 +952,10 @@ def east_blinds(prefix, y1, y2):
 
 
 # 복도 벽: 서쪽(회의실 뒤 ~ 강사실, 강사실 문), 동쪽(전산2·전산1·일반강의장 문), 끝벽(실습실 문)
-wall("North_Corr_West_Wall", 7.1, 6.6, 7.1, 17.6, M["panel_white"], openings=[(9.5, 10.4, 2.3)])
-wall("North_Corr_East_Wall", 9.4, 6.6, 9.4, 17.6, M["panel_white"],
-     openings=[(0.3, 1.2, 2.3), (7.2, 8.1, 2.3), (9.9, 10.8, 2.3)])  # 전산1 · 일반강의장 문 2곳
-wall("North_Corr_End_Wall", 7.1, 17.6, 9.4, 17.6, M["panel_white"], openings=[(0.7, 1.6, 2.3)])
+wall("North_Corr_West_Wall", 7.1, 6.6, 7.1, 14.35, M["panel_white"], openings=[(6.3, 7.2, 2.3)])  # 강사실 문
+wall("North_Corr_East_Wall", 9.4, 6.6, 9.4, 14.35, M["panel_white"],
+     openings=[(0.6, 1.5, 2.3), (2.4, 3.3, 2.3)])  # 경계벽 바로 아래 = 전산강의장1 문 · 바로 위 = 일반강의장 문
+wall("North_Corr_End_Wall", 7.1, 14.35, 9.4, 14.35, M["panel_white"], openings=[(0.7, 1.6, 2.3)])  # 실습실 문
 for i, py in enumerate([7.6, 8.8, 10.0, 11.2]):
     s = 0.95 if i == 0 else 0.72
     box(f"Consultant_Acrylic_Photo_{i + 1}", 7.18, py - s / 2, 1.58 - s / 2, 7.2, py + s / 2, 1.58 + s / 2, M["photo"][i + 2])
@@ -899,97 +963,197 @@ for i, py in enumerate([7.6, 8.8, 10.0, 11.2]):
 T("Consultant_Photo_Quote", "미소는 친절이라는 나무의 뿌리입니다", 7.215, 7.6, 1.9, 0.85, 0.07, M["white"], "E",
   fallback="Smile is the root of kindness")
 box("North_Corr_Fire_Alarm", 9.31, 8.4, 1.2, 9.33, 8.56, 1.55, M["text_red"])
-plant("North_Corr_Fiddle_Leaf", 7.45, 12.4, 1.4)
-for i, (y, label) in enumerate([(7.35, "전산강의장1"), (14.25, "일반강의장"), (16.95, "일반강의장")]):
+plant("North_Corr_Fiddle_Leaf", 9.0, 12.35, 1.4)
+for i, (y, label) in enumerate([(7.65, "전산강의장1"), (10.4, "일반강의장")]):
     box(f"North_Corr_Door_Sign_{i + 1}", 9.31, y - 0.75, 2.35, 9.33, y - 0.15, 2.58, M["white"])
     T(f"North_Corr_Door_Sign_Text_{i + 1}", label, 9.3, y - 0.45, 2.46, 0.52, 0.1, M["text_dark"], "W", fallback="Room")
-box("Instructor_Door_Sign", 7.17, 17.15, 2.35, 7.19, 17.75, 2.58, M["white"])
-T("Instructor_Door_Sign_Text", "강사실", 7.2, 17.45, 2.46, 0.4, 0.1, M["text_dark"], "E", fallback="Staff")
-box("Practice_Door_Sign", 7.2, 17.52, 2.35, 7.75, 17.54, 2.58, M["white"])
-T("Practice_Door_Sign_Text", "실습실", 7.47, 17.51, 2.46, 0.4, 0.1, M["text_dark"], "S", fallback="Practice")
-exit_sign("North_Corr_Exit_Sign", 8.25, 17.52, 2.62, "S")
+box("Instructor_Door_Sign", 7.17, 13.05, 2.35, 7.19, 13.65, 2.58, M["white"])
+T("Instructor_Door_Sign_Text", "강사실", 7.2, 13.35, 2.46, 0.4, 0.1, M["text_dark"], "E", fallback="Staff")
+box("Practice_Door_Sign", 7.2, 14.27, 2.35, 7.75, 14.29, 2.58, M["white"])
+T("Practice_Door_Sign_Text", "실습실", 7.47, 14.26, 2.46, 0.4, 0.1, M["text_dark"], "S", fallback="Practice")
+exit_sign("North_Corr_Exit_Sign", 8.25, 14.27, 2.62, "S")
+
+
+# ── 여닫이문 (진한 회색) ──
+#  이름 SwingDoor_<id>_H<min|max>_O<p|n> → 게임에서 사람이 다가가면 경첩(H) 쪽을 축으로 90도 열림
+#  H = 벽 방향 좌표의 작은 쪽(min)/큰 쪽(max)에 경첩, O = 벽에 수직인 좌표의 +(p)/-(n) 쪽(방 안)으로 열림
+#  손잡이 등 붙은 부품은 SwingDoorPart_<id>_* (문짝과 같이 움직임)
+def swing_door(did, axis, line, a, b, hinge, opens, h=2.25):
+    """axis="x": 벽이 X 방향(가로 벽, Y=line), axis="y": 벽이 Y 방향(세로 벽, X=line). a~b = 문 구멍"""
+    name = f"SwingDoor_{did}_H{hinge}_O{'p' if opens > 0 else 'n'}"
+    free = a if hinge == "max" else b  # 손잡이 쪽 끝
+    hx = free + (0.12 if hinge == "max" else -0.12)
+    t = 0.05
+    if axis == "x":
+        box(name, a + 0.01, line - t / 2, 0, b - 0.01, line + t / 2, h, M["door_gray"])
+        for k, sgn in (("A", 1), ("B", -1)):
+            cbox(f"SwingDoorPart_{did}_Handle_{k}", hx, line + sgn * 0.05, 0.98, 0.14, 0.04, 0.04, M["steel"])
+    else:
+        box(name, line - t / 2, a + 0.01, 0, line + t / 2, b - 0.01, h, M["door_gray"])
+        for k, sgn in (("A", 1), ("B", -1)):
+            cbox(f"SwingDoorPart_{did}_Handle_{k}", line + sgn * 0.05, hx, 0.98, 0.04, 0.14, 0.04, M["steel"])
+
+
+swing_door("Comp2", "y", 9.4, -3.15, -2.25, "max", +1)      # 전산강의장2 (사물함 복도)
+swing_door("Comp1", "y", 9.4, 7.2, 8.1, "min", +1)          # 전산강의장1
+swing_door("Lecture", "y", 9.4, 9.0, 9.9, "max", +1)        # 일반강의장
+swing_door("Instructor", "y", 7.1, 12.9, 13.8, "max", -1)   # 강사실
+swing_door("Practice", "x", 14.35, 7.8, 8.7, "max", +1)     # 실습실
 
 # 동쪽 방 공통 벽
-wall("East_Rooms_South_Wall", 9.4, -1.05, 17.6, -1.05, M["panel_white"])
-wall("CompRoom2_CompRoom1_Divider", 9.4, 6.15, 17.6, 6.15, M["wood_panel"])
-wall("CompRoom1_Lecture_Divider", 9.4, 13.4, 17.6, 13.4, M["wood_panel"])
-wall("Lecture_Practice_North_Wall", 0, 23.0, 17.6, 23.0, M["wood_panel"])
-wall("East_Rooms_East_Wall", 17.6, -1.05, 17.6, 23.0, M["panel_white"])
-wall("Practice_Room_East_Wall", 9.4, 17.6, 9.4, 23.0, M["panel_white"])
+wall("East_Rooms_South_Wall", 9.4, -10, 17.6, -10, M["panel_white"])  # 건물 정면 벽 선
+wall("CompRoom2_CompRoom1_Divider", 9.4, -2.2, 17.6, -2.2, M["wood_panel"])
+wall("CompRoom1_Lecture_Divider", 9.4, 8.6, 17.6, 8.6, M["wood_panel"])
+wall("Lecture_North_Wall", 9.4, 18.2, 17.6, 18.2, M["wood_panel"])
+wall("Practice_North_Wall", 0, 18.2, 9.4, 18.2, M["wood_panel"])  # 일반강의장 북쪽 벽과 같은 선
+wall("East_Rooms_East_Wall", 17.6, -10, 17.6, 18.2, M["panel_white"])
+wall("Practice_Room_East_Wall", 9.4, 14.35, 9.4, 18.2, M["panel_white"])
 
 # =====================================================================
 #  11) 전산강의장2 · 전산강의장1 — 상담석처럼 모니터·PC 가 있는 좌석 (북쪽 스크린을 봄)
 # =====================================================================
-for pre, y0, y1 in (("CompRoom2", -1.05, 6.15), ("CompRoomN1", 6.15, 13.4)):
+for pre, y0, y1, rows in (("CompRoom2", -10.0, -2.2, [-8.7, -7.35, -6.0]),
+                          ("CompRoomN1", -2.2, 8.6, [-0.5, 1.05, 2.6, 4.15, 5.7])):  # 전산1: 5줄 (뒤쪽까지 채움)
     lecture_front(pre, 9.4, 17.6, y1)
     east_blinds(pre, y0, y1)
-    for r, ry in enumerate([y0 + 1.3, y0 + 2.65, y0 + 4.0]):  # 3줄 × 2분단(분단당 3석) = 18석
+    for r, ry in enumerate(rows):  # 줄 × 2분단(분단당 3석)
         for g, gx in enumerate([11.8, 15.6]):
             for k in range(3):
                 pc_desk(f"{pre}_PC_{r}_{g}_{k}", gx - 1.0 + k * 1.0, ry, "N", w=1.0)
-    cyl(f"{pre}_Air_Purifier", 9.75, y1 - 0.45, 0, 0.18, 0.8, M["white"], 20)
+    cyl(f"{pre}_Air_Purifier", 17.2, y0 + 0.45, 0, 0.18, 0.8, M["white"], 20)  # 뒤쪽 동쪽 구석 (문 앞 비움)
 
 # =====================================================================
 #  12) 일반강의장 — 이론 교육: 모니터 없는 흰 책상(2인용) · 원목 앞벽 · 스크린 · LG U+ 교수대
 # =====================================================================
-lecture_front("Lecture", 9.4, 17.6, 23.0)
-east_blinds("Lecture", 13.4, 23.0)
-box("Ceiling_Lecture_Wood_Soffit", 9.4, 21.8, 2.9, 17.6, 23.0, 3.2, M["wood_panel"])
-for r, ry in enumerate([14.9, 16.15, 17.4, 18.65, 19.9]):  # 5줄 × 3분단 (2인용 책상) = 30석
+lecture_front("Lecture", 9.4, 17.6, 18.2)
+east_blinds("Lecture", 8.6, 18.2)
+box("Ceiling_Lecture_Wood_Soffit", 9.4, 17.0, 2.9, 17.6, 18.2, 3.2, M["wood_panel"])
+for r, ry in enumerate([11.35, 12.6, 13.85, 15.1, 16.35]):  # 5줄 (문 앞 비움) × 3분단 (2인용 책상) = 30석
     for g, gx in enumerate([11.0, 13.6, 16.2]):
         cbox(f"Lecture_Desk_{r}_{g}", gx, ry, 0.72, 1.5, 0.5, 0.04, M["white"])
         for k, lx in enumerate((-0.68, 0.68)):
             cbox(f"Lecture_Desk_Leg_{r}_{g}_{k}", gx + lx, ry, 0, 0.04, 0.4, 0.72, M["white"])
             seat(f"Lecture_Chair_{r}_{g}_{k}", gx + lx * 0.55, ry - 0.5, "N")
-plant("Lecture_Corner_Plant", 9.85, 22.4, 1.3)
-cyl("Lecture_Air_Purifier", 9.8, 21.7, 0, 0.18, 0.8, M["white"], 20)
+plant("Lecture_Corner_Plant", 9.85, 17.6, 1.3)
+cyl("Lecture_Air_Purifier", 9.8, 16.9, 0, 0.18, 0.8, M["white"], 20)
 
 # =====================================================================
 #  13) 실습실 — 상담석과 같은 구조 (위 2줄 마주보기 4석씩 · 아래 1줄 4석) · 동쪽 스크린 · 강사 책상
 # =====================================================================
-wall("Practice_West_Wall", 0, 11.0, 0, 23.0, M["wall_white"])
-wall("Practice_Instructor_Divider", 0, 17.6, 7.1, 17.6, M["panel_white"])
-DESK_X = [1.0, 2.2, 3.4, 4.6, 5.8]  # 줄마다 5석 (1열 추가)
-box("Practice_Center_Partition", 0.4, 20.87, 0.74, 6.4, 20.93, 1.25, M["blue_partition"])
-for i, x in enumerate(DESK_X):
-    pc_desk(f"Practice_Top_A_{i}", x, 20.6, "N", w=1.15)   # 위 1줄 (북쪽을 봄)
-    pc_desk(f"Practice_Top_B_{i}", x, 21.2, "S", w=1.15)   # 위 2줄 (마주봄)
-    pc_desk(f"Practice_Bottom_{i}", x, 18.6, "N", w=1.15)  # 아래 1줄
-box("Practice_Bottom_Partition", 0.4, 18.9, 0.74, 6.4, 18.94, 1.2, M["blue_partition"])
-box("Practice_Screen", 9.33, 19.0, 0.95, 9.35, 21.8, 2.45, M["white"])
-box("Practice_Screen_Case", 9.25, 18.9, 2.45, 9.38, 21.9, 2.55, M["charcoal"])
-pc_desk("Practice_Teacher_Desk", 7.6, 20.9, "W", w=1.4, d=0.7)
-plant("Practice_Corner_Plant", 0.4, 17.95, 1.3)
+wall("Practice_West_Wall", 0, 10.45, 0, 18.2, M["wall_white"])
+wall("Practice_Instructor_Divider", 0, 14.35, 7.1, 14.35, M["panel_white"])
+# 교육생 좌석: 모두 동쪽 스크린을 바라봄 (5석씩, 서쪽 벽부터)
+#   북쪽 벽에 붙은 2인 나란히 줄 2개 + 가운데 통로 + 남쪽 벽에 붙은 1인 줄 1개 = 15석
+PRACTICE_X = [1.0, 2.25, 3.5, 4.75, 6.0]
+for c, cx in enumerate(PRACTICE_X):
+    for r, cy in enumerate([17.65, 16.75]):
+        pc_desk(f"Practice_Pair_{c}_{r}", cx, cy, "E", w=0.9)
+    pc_desk(f"Practice_Single_{c}", cx, 14.9, "E", w=0.9)
+box("Practice_Pair_Partition", 0.6, 16.28, 0.74, 6.4, 16.31, 1.15, M["blue_partition"])
+box("Practice_Single_Partition", 0.6, 15.34, 0.74, 6.4, 15.37, 1.15, M["blue_partition"])
+box("Practice_Screen", 9.33, 15.3, 0.95, 9.35, 17.7, 2.45, M["white"])
+box("Practice_Screen_Case", 9.25, 15.2, 2.45, 9.38, 17.8, 2.55, M["charcoal"])
+pc_desk("Practice_Teacher_Desk", 8.25, 16.9, "W", w=1.4, d=0.7)  # 관리자석: 출입문과 같은 선
+plant("Practice_Corner_Plant", 7.4, 17.85, 1.3)
 
 # =====================================================================
 #  14) 강사실 — 파티션 책상 · 책장 (문: 복도 서쪽 벽 끝)
 # =====================================================================
-# 강사실 (Y 11.0~17.6): 서쪽 위 세로 팀장석 1 + 북쪽 벽 줄 3석 + 남쪽 벽 줄 3석 (그림대로)
-pc_desk("Instructor_Leader_Desk", 0.95, 16.2, "E", w=1.6, d=0.7)   # 팀장석: 세로 책상, 방 쪽(동쪽)을 바라봄
-cbox("Instructor_Leader_Nameplate", 1.32, 16.2, 0.74, 0.04, 0.3, 0.08, M["wood_panel"])
+# 강사실 (Y 10.45~14.35): 서쪽 세로 팀장석 1 + 북쪽 벽 줄 3석 + 남쪽 벽 줄 3석 (마주봄) · 문: 복도 서쪽 벽
+pc_desk("Instructor_Leader_Desk", 0.95, 12.4, "E", w=1.6, d=0.7)   # 팀장석: 세로 책상, 방 쪽(동쪽)을 바라봄
+cbox("Instructor_Leader_Nameplate", 1.32, 12.4, 0.74, 0.04, 0.3, 0.08, M["wood_panel"])
 for i, x in enumerate([2.15, 3.35, 4.55]):
-    pc_desk(f"Instructor_Desk_N_{i + 1}", x, 17.25, "N", w=1.15)   # 북쪽 벽 줄
-    pc_desk(f"Instructor_Desk_S_{i + 1}", x, 11.35, "S", w=1.15)   # 남쪽 벽 줄
-box("Instructor_North_Partition", 1.55, 16.92, 0.74, 5.15, 16.95, 1.15, M["blue_partition"])
-box("Instructor_South_Partition", 1.55, 11.65, 0.74, 5.15, 11.68, 1.15, M["blue_partition"])
-cbox("Instructor_Back_Bookshelf", 6.25, 11.25, 0, 1.4, 0.4, 2.2, M["wood_panel"])
+    pc_desk(f"Instructor_Desk_N_{i + 1}", x, 13.95, "N", w=1.15)   # 북쪽 벽 줄
+    pc_desk(f"Instructor_Desk_S_{i + 1}", x, 10.85, "S", w=1.15)   # 남쪽 벽 줄
+box("Instructor_North_Partition", 1.55, 13.62, 0.74, 5.15, 13.65, 1.15, M["blue_partition"])
+box("Instructor_South_Partition", 1.55, 11.15, 0.74, 5.15, 11.18, 1.15, M["blue_partition"])
+cbox("Instructor_Back_Bookshelf", 6.25, 10.73, 0, 1.4, 0.4, 2.2, M["wood_panel"])
 for i in range(3):
     for j, bz in enumerate([0.5, 1.2, 1.9]):
-        cbox(f"Instructor_Books_{i}_{j}", 5.8 + i * 0.45, 11.5, bz, 0.35, 0.05, 0.28, M["book"][(i + j) % 6])
-cyl("Instructor_Air_Purifier", 6.75, 13.6, 0, 0.18, 0.75, M["white"], 20)
-plant("Instructor_Corner_Plant", 0.45, 11.45, 1.4)
+        cbox(f"Instructor_Books_{i}_{j}", 5.8 + i * 0.45, 10.98, bz, 0.35, 0.05, 0.28, M["book"][(i + j) % 6])
+cyl("Instructor_Air_Purifier", 5.85, 13.95, 0, 0.18, 0.75, M["white"], 20)
+plant("Instructor_Corner_Plant", 0.4, 13.95, 1.4)
 
 # =====================================================================
 #  천장 (게임에서는 Ceiling_ 이름이라 자동으로 숨김)
 # =====================================================================
 box("Ceiling_Lobby", -8.7, -10, 3.25, 7.8, -2.3, 3.3, M["white"])
 box("Ceiling_Corridor", -2.45, -2.3, 3.25, 0, 6.8, 3.3, M["white"])
-box("Ceiling_Office_Wing", 0, 4.45, 3.25, 17.6, 23.0, 3.3, M["white"])
+box("Ceiling_Office_Wing", 0, 4.45, 3.25, 17.6, 18.2, 3.3, M["white"])
 
 # =====================================================================
 #  마무리: 내보내기
 # =====================================================================
 bpy.context.view_layer.update()
+
+
+# ---------------------------------------------------------------------
+#  계단실 (비상구 문 안쪽): 문 바로 안쪽 계단참 + 오르는 계단 · 내려가는 계단 두 줄 + 가운데 벽
+#  (x0, y0)~(x1, y1) = 계단실 범위, land = 계단참이 있는 쪽(N/S/E/W), walls = 새로 세울 벽(엘리베이터 홀 쪽 벽은 이미 있음)
+#  게임에서는 계단참의 초록 원 위에 서면 '층간 이동' 버튼이 뜸 (서버 STAIRS)
+# ---------------------------------------------------------------------
+def stair_room(pre, x0, y0, x1, y1, land, floor_label, walls, LAND=1.4):
+    if "N" in walls:
+        wall(f"{pre}_North_Wall", x0, y1, x1, y1, M["panel_white"])
+    if "S" in walls:
+        wall(f"{pre}_South_Wall", x0, y0, x1, y0, M["panel_white"])
+    if "W" in walls:
+        wall(f"{pre}_West_Wall", x0, y0, x0, y1, M["panel_white"])
+    if "E" in walls:
+        wall(f"{pre}_East_Wall", x1, y0, x1, y1, M["panel_white"])
+    horiz = land in ("N", "S")  # 계단이 남북으로 놓임
+    if land == "N":
+        lr, a0, a1 = (x0, y1 - LAND, x1, y1), y1 - LAND, y0
+    elif land == "S":
+        lr, a0, a1 = (x0, y0, x1, y0 + LAND), y0 + LAND, y1
+    elif land == "W":
+        lr, a0, a1 = (x0, y0, x0 + LAND, y1), x0 + LAND, x1
+    else:
+        lr, a0, a1 = (x1 - LAND, y0, x1, y1), x1 - LAND, x0
+    box(f"{pre}_Landing_Floor", lr[0], lr[1], -0.02, lr[2], lr[3], 0.0, M["steel"])
+    c0, c1 = (x0, x1) if horiz else (y0, y1)  # 계단 폭 방향
+    cm = (c0 + c1) / 2
+    lanes = (("Up", c0 + 0.05, cm - 0.08), ("Down", cm + 0.08, c1 - 0.05))
+
+    def R(name, along1, along2, cross1, cross2, z1, z2, mat):
+        a_lo, a_hi = min(along1, along2), max(along1, along2)
+        if horiz:
+            return box(name, cross1, a_lo, z1, cross2, a_hi, z2, mat)
+        return box(name, a_lo, cross1, z1, a_hi, cross2, z2, mat)
+
+    n = 10
+    step = (a1 - a0) / n
+    for lane, q0, q1 in lanes:
+        for k in range(n):
+            s1, s2 = a0 + k * step, a0 + (k + 1) * step
+            m = M["steel"] if k % 2 else M["charcoal"]
+            if lane == "Up":
+                R(f"{pre}_Up_Step_{k + 1}", s1, s2, q0, q1, 0, 0.17 * (k + 1), m)
+            else:
+                R(f"{pre}_Down_Step_{k + 1}", s1, s2, q0, q1, -1.9, -0.17 * (k + 1), m)
+    R(f"{pre}_Down_Pit_Floor", a0, a1, cm + 0.08, c1 - 0.05, -2.0, -1.9, M["charcoal"])
+    R(f"{pre}_Center_Wall", a0, a1, cm - 0.08, cm + 0.08, 0, 1.1, M["panel_white"])
+    R(f"{pre}_Down_Rail", a0 - 0.04, a0 + 0.04, cm + 0.08, c1 - 0.05, 0, 1.0, M["steel"])
+    R(f"{pre}_Down_Rail_Top", a0 - 0.06, a0 + 0.06, cm + 0.08, c1 - 0.05, 1.0, 1.06, M["black"])
+    # 초록 안내선 (계단참 가운데)
+    lx, ly = (lr[0] + lr[2]) / 2, (lr[1] + lr[3]) / 2
+    if horiz:
+        box(f"{pre}_Glow_Line", lx - 0.6, ly - 0.05, 0, lx + 0.6, ly + 0.05, 0.01, M["tape_green"])
+    else:
+        box(f"{pre}_Glow_Line", lx - 0.05, ly - 0.6, 0, lx + 0.05, ly + 0.6, 0.01, M["tape_green"])
+    # 계단 끝 벽: 층 표시 + 위/아래 안내 (계단참 쪽을 바라봄)
+    face = {"N": "N", "S": "S", "W": "W", "E": "E"}[land]
+    ea = a1 + (0.03 if a1 > a0 else -0.03) * -1
+    up_c, dn_c = (c0 + cm) / 2, (cm + c1) / 2
+    for nm, cc, txt, w in (("Floor_Number", cm, floor_label, 0.7), ("Up_Text", up_c, "▲ 위층", 0.6), ("Down_Text", dn_c, "▼ 아래층", 0.7)):
+        z = 2.25 if nm == "Floor_Number" else 1.75
+        h = 0.35 if nm == "Floor_Number" else 0.16
+        tx, ty = (cc, ea) if horiz else (ea, cc)
+        T(f"{pre}_{nm}", txt, tx, ty, z, w, h, M["text_dark"], face, fallback=txt)
+
+
+stair_room("Stair_1F", -11.2, -8.5, -8.7, -4.6, "N", "1F", walls=("N", "S", "W"))  # 엘리베이터 홀 서쪽 벽 검은 문 안쪽 (문 = 계단참)
+
 print(f"[1F v2] 오브젝트 {len(col.objects)}개 생성 완료")
 if EXPORT_PATH:
     export_dir = os.path.dirname(EXPORT_PATH)
