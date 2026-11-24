@@ -189,9 +189,9 @@ const DESK_GUIDE = [
     key: "shop", label: "🛒 아이템·포인트", lines: [
       "회원은 처음에 500P와 커피 1잔을 받고 시작해요. 오른쪽 🎒 버튼에 내 포인트가 보여요.",
       "아이템은 층마다 돌아다니는 채용담당자에게 말을 걸면 '아이템 상점'에서 사고팔 수 있어요. 🛒",
-      "☕ 아이스 아메리카노(100P): 30초 동안 1.5배 빨리 걷기\n📡 5G 보물 스캐너(200P): 20초 동안 보물 방향 안내 + 숨은 보물이 보여요\n🌿 피톤치드 스프레이(80P): 15초 동안 상쾌한 효과",
-      "🎧 골드 헤드셋(500P) · 🪭 미니 선풍기(300P, 항상 15% 빨리 걷기) · 🦖 노란 공룡 펫(800P, 보물을 더 멀리서 열 수 있음) · 🐦 황금새(1,000P, 어깨에 앉는 새)",
-      "🎯 럭키 다트 티켓(250P)을 쓰면 50P ~ 1,000P가 랜덤으로 당첨돼요.",
+      "☕ 아이스 아메리카노(100P): 1분 동안 1.5배 빨리 걷기\n📡 5G 보물 스캐너(200P): 1분 동안 보물 방향 안내 + 숨은 보물이 보여요 (층을 옮겨도 계속)\n🌿 피톤치드 스프레이(80P): 1시간 동안 민트빛 파동 + 오늘 자정까지 머리 위 '✨ 상쾌함 충전!'",
+      "🎧 골드 헤드셋(500P) · 🪭 미니 선풍기(1,000P, 항상 15% 빨리 걷기) · 🦖 노란 공룡 펫(1,000P, 보물을 더 멀리서 열 수 있음) · 🐦 황금새(1,000P, 어깨에 앉는 새)",
+      "🎯 럭키 다트 티켓(300P)을 쓰면 50P ~ 700P가 랜덤으로 당첨돼요. 당첨 점수는 다트 퀘스트(300점·400점) 점수로도 인정돼요!",
       "산 아이템은 오른쪽 🎒 가방에서 쓰거나 장착해요. 장착한 아이템은 다른 사람에게도 보여요. 필요 없는 아이템은 채용담당자에게 되팔 수 있어요.",
     ],
   },
@@ -873,7 +873,7 @@ class CharBoundary extends Component {
   }
 }
 
-function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, model, hideLabel, pose, actorId, equipped, coffee, aura, quest }) {
+function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, model, hideLabel, pose, actorId, equipped, coffee, aura, wave, quest }) {
   const charsOk = useContext(CharsContext);
   const labelScale = useContext(LabelScaleContext);
   const procedural = <ProceduralBody speedRef={speedRef} outfit={outfit || CARDIGAN} actorId={actorId} />;
@@ -889,7 +889,7 @@ function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, mod
         procedural
       )}
       {actorId && <ActionEmoji actorId={actorId} />}
-      <Accessories equipped={equipped} coffee={coffee} aura={aura} />
+      <Accessories equipped={equipped} coffee={coffee} wave={wave} />
       {!hideLabel && (
       <Html position-y={1.8} center distanceFactor={labelScale} zIndexRange={[10, 0]}>
         <div style={{ ...styles.labelWrap, transform: "translateY(-50%)" /* 이름표 아래쪽이 머리 위에 오도록 */ }}>
@@ -911,8 +911,8 @@ function AvatarBody({ tagColor, name, bubble, isMe, speedRef, outfit, isNpc, mod
    캐릭터는 +Z 를 바라봄 · 머리 꼭대기 약 1.6m                                      */
 const ACC = { headY: 1.5, handY: 0.82, handX: 0.27 };
 const GOLD = { color: "#f5c518", metalness: 0.85, roughness: 0.25 };
-function Accessories({ equipped, coffee, aura }) {
-  if (!equipped?.headset && !equipped?.pet && !equipped?.hand && !equipped?.shoulder && !coffee && !aura) return null;
+function Accessories({ equipped, coffee, wave }) {
+  if (!equipped?.headset && !equipped?.pet && !equipped?.hand && !equipped?.shoulder && !coffee && !wave) return null;
   return (
     <group>
       {equipped?.headset && <GoldHeadset />}
@@ -920,7 +920,7 @@ function Accessories({ equipped, coffee, aura }) {
       {equipped?.hand && <MiniFan />}
       {equipped?.shoulder && <GoldBird />}
       {coffee && <CoffeeCup />}
-      {aura && <AuraRing />}
+      {wave && <AuraRing />}
     </group>
   );
 }
@@ -1268,7 +1268,7 @@ function hitsWall(colliders, x, z) {
   return false;
 }
 
-function MyAvatar({ me, inputRef, bubble, myPosRef, frozen, bounds, colliders, camMode = "top", speedMul = 1, coffee, aura }) {
+function MyAvatar({ me, inputRef, bubble, myPosRef, frozen, bounds, colliders, camMode = "top", speedMul = 1, coffee, aura, wave }) {
   const ref = useRef();
   const sendTimer = useRef(0);
   const lastSent = useRef("");
@@ -1358,7 +1358,7 @@ function MyAvatar({ me, inputRef, bubble, myPosRef, frozen, bounds, colliders, c
   return (
     <group ref={ref} position={me.position}>
       {/* 1인칭에서는 내 몸이 카메라를 가리지 않도록 숨김 */}
-      {!CAMERA_MODES[camMode]?.firstPerson && <AvatarBody name={me.guest ? `${me.name} (방문자)` : me.name} bubble={bubble} isMe speedRef={speedRef} model={lookModel(me.look)} outfit={me.look?.outfit} actorId={me.id} equipped={me.equipped} coffee={coffee} aura={aura} quest={me.quest} />}
+      {!CAMERA_MODES[camMode]?.firstPerson && <AvatarBody name={me.guest ? `${me.name} (방문자)` : me.name} bubble={bubble} isMe speedRef={speedRef} model={lookModel(me.look)} outfit={me.look?.outfit} actorId={me.id} equipped={me.equipped} coffee={coffee} aura={aura} wave={wave} quest={me.quest} />}
     </group>
   );
 }
@@ -1400,6 +1400,7 @@ function OtherAvatar({ player, bubble }) {
         equipped={player.equipped}
         coffee={player.coffee}
         aura={player.aura}
+        wave={player.wave}
         quest={player.quest}
       />
     </group>
@@ -1648,8 +1649,24 @@ export default function App() {
   const [myQuest, setMyQuest] = useState(null); // 진행 중 퀘스트 { id, title, done, total }
   const [myCoffee, setMyCoffee] = useState(false);
   const [myAura, setMyAura] = useState(null);
+  const [myWave, setMyWave] = useState(false);
   const [radarOn, setRadarOn] = useState(false);
   const buffTimers = useRef({});
+  // ⚡ 서버가 알려 준 아이템 효과 끝나는 시각대로 켜고, 시간이 되면 끄기 (층 이동·새로고침해도 유지)
+  const applyBuffs = (buffs = {}) => {
+    const sets = {
+      coffee: setMyCoffee,
+      radar: setRadarOn,
+      wave: setMyWave,
+      refresh: (v) => setMyAura(v ? "✨ 상쾌함 충전!" : null),
+    };
+    for (const [k, set] of Object.entries(sets)) {
+      clearTimeout(buffTimers.current[k]);
+      const left = (buffs[k] || 0) - Date.now();
+      set(left > 0);
+      if (left > 0) buffTimers.current[k] = setTimeout(() => set(false), Math.min(left, 2 ** 31 - 1));
+    }
+  };
   const [msgTarget, setMsgTarget] = useState(null); // 메시지를 남길 NPC { id, name }
   const [rpsNpc, setRpsNpc] = useState(null); // 가위바위보 상대 NPC
   const [omokNpc, setOmokNpc] = useState(null); // 오목 상대 NPC
@@ -1786,7 +1803,7 @@ export default function App() {
       setOthers((o) => (o[id] ? { ...o, [id]: { ...o[id], ...patch } } : o));
     };
     const onEquip = ({ id, equipped }) => patchPlayer(id, { equipped });
-    const onAura = ({ id, aura }) => patchPlayer(id, { aura });
+    const onAura = ({ id, aura, wave }) => patchPlayer(id, { aura, wave });
     const onCoffee = ({ id, on }) => patchPlayer(id, { coffee: on });
     const onPlayerQuest = ({ id, quest }) => patchPlayer(id, { quest });
     const onQuestUpdate = (r) => {
@@ -1826,7 +1843,12 @@ export default function App() {
 
   // 회원이 입장하면 포인트를 받아 🎒 버튼에 표시
   useEffect(() => {
-    if (me?.id && !me.guest) shopInfo().then((r) => r.ok && setPoints(r.wallet.points));
+    if (me?.id && !me.guest)
+      shopInfo().then((r) => {
+        if (!r.ok) return;
+        setPoints(r.wallet.points);
+        applyBuffs(r.wallet.buffs);
+      });
     if (me?.id && !me.guest)
       questInfo().then((r) => r.ok && setMyQuest(r.active ? { ...r.active, title: r.list.find((q) => q.id === r.active.id)?.title } : null));
   }, [me?.id]); // eslint-disable-line
@@ -2274,6 +2296,7 @@ export default function App() {
           speedMul={(myCoffee ? 1.5 : 1) * (me.equipped?.hand ? 1.15 : 1)}
           coffee={myCoffee}
           aura={myAura}
+          wave={myWave}
         />
         {radarOn && <RadarArrow targets={allFloorTreasures} />}
         {Object.values(others).map((p) => (
@@ -2321,7 +2344,7 @@ export default function App() {
 
       {!me.guest && (
         <button style={styles.bagBtn} onClick={() => setShopMode("bag")}>
-          🎒 {points === null ? "가방" : `${points.toLocaleString()}P`}
+          🎒 내 아이템{points === null ? "" : ` · ${points.toLocaleString()}P`}
         </button>
       )}
       {shopMode && (
@@ -2338,12 +2361,7 @@ export default function App() {
           }
           onUsed={(it, r) => {
             if (!r.buff) return;
-            const { effect, duration } = r.buff;
-            const key = effect;
-            clearTimeout(buffTimers.current[key]);
-            const set = effect === "SPEED_BOOST" ? setMyCoffee : effect === "RADAR_SCAN" ? setRadarOn : (v) => setMyAura(v ? "✨ 상쾌함 충전!" : null);
-            set(true);
-            buffTimers.current[key] = setTimeout(() => set(false), duration);
+            applyBuffs(r.wallet?.buffs);
             setShopMode(null);
             showToast(r.message);
           }}

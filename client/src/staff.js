@@ -287,6 +287,7 @@ void MALE;
 const nine = (who, team, path, offset, lines, model) => ({
   id: `staff_9F_${who}`, floor: "9F", name: `${team} ${who} (개발자)`, // 이 게임을 함께 만든 개발자 ...look(who, model === MALE), ...(model ? { model } : {}),
   path: route(path), pathOffset: offset,
+  dev: true, // 개발자: 모든 아이템 장착 + 황금빛 (App.jsx Npc)
   dialog: [`안녕하세요, ${team} ${who}입니다.`, ...lines],
 });
 STAFF.push(
