@@ -1,3 +1,4 @@
+import { CLASSROOM_SEATS_1F } from "./seats1f.js";
 // 층별 고정 NPC 직원 명단 + 상담실(7·8·9층) 좌석 배치
 // - 1층: 강사 4명 (일반강의장, 전산강의장1·2, 강사실)
 // - 7·8·9층: 실장·팀장 (돌아다니거나 팀장석에 앉음) + 코치 (상담석에 앉음)
@@ -204,7 +205,7 @@ STAFF.push(
   },
   {
     id: "staff_1F_양인실", floor: "1F", name: "양인실 강사", ...look("양인실"),
-    position: [3.35, 0, -11.45], rotationY: 0, pose: "sit", // 강사실 남쪽 벽 줄 가운데 강사석
+    position: [3.35, 0, -13.42], rotationY: Math.PI, pose: "sit", // 강사실 뒷줄(북쪽 벽 줄) 가운데 강사석
     dialog: [
       "여기는 강사실이에요. 교육 자료를 준비하고 1:1 코칭도 해요.",
       "교육 중에 힘든 점이 있으면 언제든 강사실 문을 두드려요!",
@@ -242,7 +243,7 @@ STAFF.push(
     ["택배, 우편물, 회의실 예약은 총무팀으로!", "오늘도 다들 안전하게 근무하세요. 응원합니다!"], true),
   six("박남수", "PM", { position: [-3.12, 0, -12.35], rotationY: -SEAT_W, pose: "sit" }, // 상담석 (동쪽 자리)
     ["센터를 움직이는 건 숫자와 통계, 꼼꼼한 실적 확인이 필요해요."], true),
-  six("허유경", "센터장", { position: [-1.5, 0, -15.52], rotationY: 0, pose: "sit", game: "omok" }, // 팀장석
+  six("허유경", "센터장", { position: [-4.1, 0, -15.52], rotationY: 0, pose: "sit", game: "omok" }, // 팀장석
     ["여러분 한 사람 한 사람이 우리 센터의 자랑이에요.", "고객도, 직원도 행복한 센터를 함께 만들어 가요!"]),
   { ...six("류희숙", "재무회계", { position: [-5.08, 0, -12.35], rotationY: SEAT_W, pose: "sit" },
     ["경비 처리는 기한 안에 부탁드려요~", "숫자는 정직해요. 꼼꼼함이 신뢰를 만듭니다!"]), model: LONG },
@@ -342,6 +343,30 @@ export function seatedWorkers(floor) {
       hair: HAIR[Math.floor(r() * HAIR.length)],
       longHair: r() < 0.55,
       phase: r() * Math.PI * 2,
+    });
+  }
+  return out;
+}
+
+/* ───────── 1층 교육장에 앉아 있는 교육생 (배경용) ─────────
+   일반강의장 · 전산강의장1·2 는 좌석의 60%, 실습실은 50% */
+const CLASS_RATIO = { lecture: 0.6, comp1: 0.6, comp2: 0.6, practice: 0.5 };
+export function classroomWorkers() {
+  const out = [];
+  for (const [room, seats] of Object.entries(CLASSROOM_SEATS_1F)) {
+    const r = rng(hash(`class-${room}`));
+    const order = seats.map((s, i) => [r(), i]).sort((a, b) => a[0] - b[0]).map(([, i]) => i);
+    const pick = new Set(order.slice(0, Math.round(seats.length * CLASS_RATIO[room])));
+    seats.forEach(([x, y, rot], i) => {
+      if (!pick.has(i)) return;
+      out.push({
+        position: [x, 0, -y],
+        rotationY: rot,
+        outfit: OUTFITS[Math.floor(r() * OUTFITS.length)],
+        hair: HAIR[Math.floor(r() * HAIR.length)],
+        longHair: r() < 0.55,
+        phase: r() * Math.PI * 2,
+      });
     });
   }
   return out;

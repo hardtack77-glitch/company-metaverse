@@ -105,8 +105,8 @@ function request(event, payload, fallback) {
 export const claimTreasure = (treasureId) =>
   request("claimTreasure", treasureId, { success: false, message: "서버 응답이 없어요. 다시 시도해 주세요." });
 
-export const changeFloor = (floor) =>
-  request("changeFloor", floor, { ok: false, message: "서버 응답이 없어요. 다시 시도해 주세요." });
+export const changeFloor = (floor, via) =>
+  request("changeFloor", via ? { floor, via } : floor, { ok: false, message: "서버 응답이 없어요. 다시 시도해 주세요." });
 
 // 다트 게임 점수 보내기 → { ok, isBest, best, rank, top: [{name, score}] }
 export const submitDart = (score) =>
